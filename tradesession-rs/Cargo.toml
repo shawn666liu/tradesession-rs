@@ -1,0 +1,23 @@
+[package]
+name = "tradesession"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# default = ["with-jiff"]
+default = ["with-chrono"]
+with-chrono = ["chrono"]
+with-jiff = ["jiff"]
+
+# cargo build --features "with-jiff"
+# cargo build --features "with-chrono" --no-default-features
+# in Cargo.toml, should use "default-features = false"
+
+[dependencies]
+anyhow = "*"
+csv = "*"
+chrono = { version = "*", features = ["serde"], optional = true }
+jiff = { version = "*", features = ["serde"], optional = true }
+encoding = "*"
+encoding_rs_io = "*"
+serde_json = "*"

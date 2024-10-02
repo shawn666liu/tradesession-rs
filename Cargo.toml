@@ -1,0 +1,3 @@
+[workspace]
+members = ["tradesession-rs"]
+resolver = "2"
