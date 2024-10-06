@@ -154,11 +154,11 @@ impl SessionSlice {
     }
 
     /// 注意：超前4小时
-    pub fn begin_sec(&self) -> ShiftedTime {
+    pub fn begin(&self) -> ShiftedTime {
         self.begin
     }
     /// 注意：超前4小时
-    pub fn end_sec(&self) -> ShiftedTime {
+    pub fn end(&self) -> ShiftedTime {
         self.end
     }
 
@@ -472,14 +472,8 @@ mod tests {
         for slice in &slice_vec {
             println!("{}", slice);
         }
-        assert_eq!(
-            slice_vec[3].begin_sec(),
-            ShiftedTime::from(make_time(21, 0, 0))
-        );
-        assert_eq!(
-            slice_vec[3].end_sec(),
-            ShiftedTime::from(make_time(1, 0, 0))
-        );
+        assert_eq!(slice_vec[3].begin(), ShiftedTime::from(make_time(21, 0, 0)));
+        assert_eq!(slice_vec[3].end(), ShiftedTime::from(make_time(1, 0, 0)));
 
         // let session = TradeSession::new(slice_vec);
 
