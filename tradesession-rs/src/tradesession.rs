@@ -369,65 +369,6 @@ impl TradeSession {
     //     }
     //     v
     // }
-
-    /// 将数据库中的Session字段转为Vec<SessionSlice>,
-    /// [{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
-    pub fn parse_slices(json: &str) -> Result<Vec<SessionSlice>> {
-        let mut res = Vec::<SessionSlice>::new();
-        match serde_json::from_str(&json.to_lowercase())? {
-            Value::Array(arr) => {
-                for elem in arr {
-                    // println!("{:?}", elem);
-                    // println!("{} ~ {}", elem["Begin"], elem["End"]);
-                    match (&elem["begin"], &elem["end"]) {
-                        (Value::String(bb), Value::String(ee)) => {
-                            #[cfg(feature = "with-jiff")]
-                            {
-                                let begin = MyTimeType::strptime("%H:%M:%S", bb)?;
-                                let end = MyTimeType::strptime("%H:%M:%S", ee)?;
-                                res.push(SessionSlice::new(&begin, &end)?);
-                            }
-                            #[cfg(feature = "with-chrono")]
-                            {
-                                let begin = MyTimeType::parse_from_str(bb, "%H:%M:%S")?;
-                                let end = MyTimeType::parse_from_str(ee, "%H:%M:%S")?;
-                                res.push(SessionSlice::new(&begin, &end)?);
-                            }
-                        }
-                        _ => return Err(anyhow!("trade session解析错误: {}", elem)),
-                    }
-                }
-            }
-            _ => return Err(anyhow!("trade session字符串必须是Array类型")),
-        }
-
-        return Ok(res);
-    }
-
-    pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>> {
-        let mut hash: HashMap<String, Self> = Default::default();
-        let mut rdr = csv::Reader::from_reader(read);
-        for line in rdr.records() {
-            let rec = line?;
-            if rec.len() == 3 {
-                let json = &rec[2];
-                let slices = Self::parse_slices(json)?;
-                let session = Self::new(slices);
-                hash.insert(rec[0].into(), session);
-            } else {
-                return Err(anyhow!("bad format session {:#?}", rec));
-            }
-        }
-        Ok(hash)
-    }
-
-    /// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
-    /// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
-    pub fn load_from_csv<P: AsRef<Path>>(path: P) -> Result<HashMap<String, TradeSession>> {
-        let path = path.as_ref();
-        let file = File::open(path).with_context(|| path.display().to_string())?;
-        return Self::load_from_read(DecodeReaderBytes::new(file));
-    }
 }
 impl Display for TradeSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -441,6 +382,76 @@ impl Display for TradeSession {
         }
         Ok(())
     }
+}
+
+/// 将数据库中的Session字段转为Vec<SessionSlice>,
+/// [{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
+pub fn parse_json_slices(json: &str) -> Result<Vec<SessionSlice>> {
+    let mut res = Vec::<SessionSlice>::new();
+    match serde_json::from_str(&json.to_lowercase())? {
+        Value::Array(arr) => {
+            for elem in arr {
+                // println!("{:?}", elem);
+                // println!("{} ~ {}", elem["Begin"], elem["End"]);
+                match (&elem["begin"], &elem["end"]) {
+                    (Value::String(bb), Value::String(ee)) => {
+                        #[cfg(feature = "with-jiff")]
+                        {
+                            let begin = MyTimeType::strptime("%H:%M:%S", bb)?;
+                            let end = MyTimeType::strptime("%H:%M:%S", ee)?;
+                            res.push(SessionSlice::new(&begin, &end)?);
+                        }
+                        #[cfg(feature = "with-chrono")]
+                        {
+                            let begin = MyTimeType::parse_from_str(bb, "%H:%M:%S")?;
+                            let end = MyTimeType::parse_from_str(ee, "%H:%M:%S")?;
+                            res.push(SessionSlice::new(&begin, &end)?);
+                        }
+                    }
+                    _ => return Err(anyhow!("trade session解析错误: {}", elem)),
+                }
+            }
+        }
+        _ => return Err(anyhow!("trade session字符串必须是Array类型")),
+    }
+
+    return Ok(res);
+}
+
+pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>> {
+    let mut hash: HashMap<String, TradeSession> = Default::default();
+    let mut rdr = csv::Reader::from_reader(read);
+    for line in rdr.records() {
+        let rec = line?;
+        if rec.len() == 3 {
+            let json = &rec[2];
+            let slices = parse_json_slices(json)?;
+            let session = TradeSession::new(slices);
+            hash.insert(rec[0].into(), session);
+        } else {
+            return Err(anyhow!("bad format session {:#?}", rec));
+        }
+    }
+    Ok(hash)
+}
+
+/// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
+/// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
+pub fn load_from_csv<P: AsRef<Path>>(path: P) -> Result<HashMap<String, TradeSession>> {
+    let path = path.as_ref();
+    let file = File::open(path).with_context(|| path.display().to_string())?;
+    return load_from_read(DecodeReaderBytes::new(file));
+}
+
+pub fn load_from_json_map(
+    prd_vs_json: &HashMap<String, String>,
+) -> Result<HashMap<String, Vec<SessionSlice>>> {
+    let mut res_map: HashMap<String, Vec<SessionSlice>> = HashMap::new();
+    for (k, v) in prd_vs_json {
+        let res_vec: Vec<SessionSlice> = parse_json_slices(v)?;
+        res_map.insert(k.to_string(), res_vec);
+    }
+    Ok(res_map)
 }
 
 #[cfg(test)]
@@ -466,7 +477,7 @@ mod tests {
     #[test]
     fn parse_session_json() -> Result<()> {
         let json = "[{\"Begin\":\"09:00:00\",\"end\":\"10:15:00\"},{\"Begin\":\"10:30:00\",\"End\":\"11:30:00\"},{\"Begin\":\"13:30:00\",\"End\":\"15:00:00\"},{\"Begin\":\"21:00:00\",\"End\":\"01:00:00\"}]";
-        let slice_vec = TradeSession::parse_slices(json)?;
+        let slice_vec = parse_json_slices(json)?;
         assert_eq!(slice_vec.len(), 4);
         println!("parsed vec lenght is {}", slice_vec.len());
         for slice in &slice_vec {
