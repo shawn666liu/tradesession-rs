@@ -1,0 +1,22 @@
+[package]
+name = "tradesessionpp"
+version = "0.1.0"
+edition = "2024"
+authors = ["Shawn Liu <shawn666.liu@hotmail.com>"]
+description = "TradeSession,cpp封装"
+
+[lib]
+name = "tradesessionpp"
+path = "src/tradesessionpp.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "*"
+chrono = "^0.4"
+cxx = "*"
+tradesession = { version = "*", path = "../tradesession-rs", default-features = false, features = [
+    "with-chrono",
+] }
+
+[build-dependencies]
+cxx-build = "*"

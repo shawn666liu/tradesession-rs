@@ -1,13 +1,6 @@
-use anyhow::{anyhow, Context, Result};
-use encoding_rs_io::DecodeReaderBytes;
+use anyhow::{anyhow, Result};
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Display,
-    fs::File,
-    io::Read,
-    path::Path,
-};
+use std::{collections::BTreeMap, fmt::Display};
 
 #[cfg(feature = "with-chrono")]
 use chrono::Timelike;
@@ -74,9 +67,9 @@ impl Display for ShiftedTime {
         write!(
             f,
             "{}, sec {}, {}",
-            self.origin_time(),
+            self.origin_time().format("%R"),
             self.0,
-            self.shifted_time()
+            self.shifted_time().format("%R")
         )
     }
 }
@@ -190,10 +183,10 @@ impl Display for SessionSlice {
         write!(
             f,
             "raw({}~{}), act({}~{})",
-            self.begin.shifted_time(),
-            self.end.shifted_time(),
-            self.begin.origin_time(),
-            self.end.origin_time(),
+            self.begin.shifted_time().format("%R"),
+            self.end.shifted_time().format("%R"),
+            self.begin.origin_time().format("%R"),
+            self.end.origin_time().format("%R"),
         )
     }
 }
@@ -375,7 +368,8 @@ impl Display for TradeSession {
         write!(
             f,
             "day_begin: {}, day_end: {}\n",
-            self.day_begin, self.day_end
+            self.day_begin.format("%R"),
+            self.day_end.format("%R")
         )?;
         for (idx, sec) in self.slices.iter().enumerate() {
             write!(f, "{}: {}\n", idx, sec)?;
@@ -416,42 +410,6 @@ pub fn parse_json_slices(json: &str) -> Result<Vec<SessionSlice>> {
     }
 
     return Ok(res);
-}
-
-pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>> {
-    let mut hash: HashMap<String, TradeSession> = Default::default();
-    let mut rdr = csv::Reader::from_reader(read);
-    for line in rdr.records() {
-        let rec = line?;
-        if rec.len() == 3 {
-            let json = &rec[2];
-            let slices = parse_json_slices(json)?;
-            let session = TradeSession::new(slices);
-            hash.insert(rec[0].into(), session);
-        } else {
-            return Err(anyhow!("bad format session {:#?}", rec));
-        }
-    }
-    Ok(hash)
-}
-
-/// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
-/// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
-pub fn load_from_csv<P: AsRef<Path>>(path: P) -> Result<HashMap<String, TradeSession>> {
-    let path = path.as_ref();
-    let file = File::open(path).with_context(|| path.display().to_string())?;
-    return load_from_read(DecodeReaderBytes::new(file));
-}
-
-pub fn load_from_json_map(
-    prd_vs_json: &HashMap<String, String>,
-) -> Result<HashMap<String, Vec<SessionSlice>>> {
-    let mut res_map: HashMap<String, Vec<SessionSlice>> = HashMap::new();
-    for (k, v) in prd_vs_json {
-        let res_vec: Vec<SessionSlice> = parse_json_slices(v)?;
-        res_map.insert(k.to_string(), res_vec);
-    }
-    Ok(res_map)
 }
 
 #[cfg(test)]

@@ -9,9 +9,13 @@ default = ["with-chrono"]
 with-chrono = ["chrono"]
 with-jiff = ["jiff"]
 
-# cargo build --features "with-jiff"
-# cargo build --features "with-chrono" --no-default-features
-# in Cargo.toml, should use "default-features = false"
+# 由于缺省是chrono,别的项目引用将这个repo时,在Cargo.toml [dependencies],
+# 如果使用jiff,则应该添加 "default-features = false"
+
+# 命令行编译本项目时
+# cargo build --features "with-jiff"   --no-default-features
+# cargo build --features "with-chrono"
+# 切换的过程中，应该cargo clean
 
 [dependencies]
 anyhow = "*"

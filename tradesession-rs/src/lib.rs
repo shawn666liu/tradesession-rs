@@ -1,11 +1,6 @@
 pub mod jcswitch;
+mod session_mgr;
 mod tradesession;
 
-use anyhow::Result;
-use std::collections::HashMap;
-
+pub use session_mgr::SessionManager;
 pub use tradesession::*;
-
-pub fn load_tradessesion() -> Result<HashMap<String, TradeSession>> {
-    unimplemented!()
-}
