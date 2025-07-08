@@ -8,8 +8,13 @@ description = "TradeSession,python封装"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "tradesessionpy"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = "0.22.0"
-tradesession = { version = "*", path = "../tradesession-rs" }
+anyhow = "*"
+chrono = "^0.4"
+tradesession = { version = "*", path = "../tradesession-rs", default-features = false, features = [
+    "with-chrono",
+] }
+pyo3 = { version = "0.25.1", features = ["extension-module", "chrono"] }
+pyo3-stub-gen = { version = "0.10.0" }
