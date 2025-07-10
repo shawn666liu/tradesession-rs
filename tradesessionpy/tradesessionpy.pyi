@@ -5,17 +5,63 @@ import builtins
 import datetime
 
 class SessionMgr:
+    def __new__(cls) -> SessionMgr: ...
     @staticmethod
-    def new_from_csv(csv_file_path:builtins.str) -> SessionMgr: ...
+    def new_from_csv(csv_file_path:builtins.str) -> SessionMgr:
+        r"""
+        创建失败时会爆出异常
+        """
     @staticmethod
-    def new_from_string(csv_content:builtins.str) -> SessionMgr: ...
-    def get_session(self, product:builtins.str) -> SessionPP: ...
-    def day_begin(self, product:builtins.str) -> datetime.time: ...
-    def day_end(self, product:builtins.str) -> datetime.time: ...
-    def in_session(self, product:builtins.str, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool: ...
+    def new_from_csv_content(csv_content:builtins.str) -> SessionMgr:
+        r"""
+        创建失败时会爆出异常
+        """
+    @staticmethod
+    def new_commodity_session() -> SessionPP: ...
+    @staticmethod
+    def new_commodity_session_night() -> SessionPP: ...
+    @staticmethod
+    def new_stock_session() -> SessionPP: ...
+    @staticmethod
+    def new_stock_index_session() -> SessionPP: ...
+    @staticmethod
+    def new_full_session() -> SessionPP: ...
+    def reload_csv_contend(self, csv_content:builtins.str, merge:builtins.bool) -> None:
+        r"""
+        ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
+        """
+    def reload_csv_file(self, csv_file_path:builtins.str, merge:builtins.bool) -> None:
+        r"""
+        ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
+        """
+    def has_session(self, product:builtins.str) -> builtins.bool: ...
+    def get_session(self, product:builtins.str) -> SessionPP:
+        r"""
+        获取失败时会爆出异常
+        """
+    def day_begin(self, product:builtins.str) -> datetime.time:
+        r"""
+        获取失败时会爆出异常
+        """
+    def day_end(self, product:builtins.str) -> datetime.time:
+        r"""
+        获取失败时会爆出异常
+        """
+    def in_session(self, product:builtins.str, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool:
+        r"""
+        获取失败时会爆出异常
+        """
+    def any_in_session(self, product:builtins.str, start:datetime.time, end:datetime.time, include_begin_end:builtins.bool) -> builtins.bool:
+        r"""
+        start, end之间任意时间点落在session中吗?
+        """
 
 class SessionPP:
     def day_begin(self) -> datetime.time: ...
     def day_end(self) -> datetime.time: ...
     def in_session(self, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool: ...
+    def any_in_session(self, start:datetime.time, end:datetime.time, include_begin_end:builtins.bool) -> builtins.bool:
+        r"""
+        start, end之间任意时间点落在session中吗?
+        """
 

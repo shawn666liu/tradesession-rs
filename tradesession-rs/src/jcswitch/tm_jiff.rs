@@ -1,3 +1,4 @@
+use anyhow::Result;
 use jiff::civil::{Date, DateTime, Time};
 
 pub type MyDateType = Date;
@@ -157,3 +158,17 @@ pub fn time_to_midnight_nanos(time: &MyTimeType) -> i64 {
     nanos += time.subsec_nanosecond() as i64;
     nanos
 }
+
+/// "%H:%M:%S"
+pub fn parse_time(time_str: &str, fmt: &str) -> Result<MyTimeType> {
+    Ok(Time::strptime(fmt, time_str)?)
+}
+/// "%Y-%m-%d"
+pub fn parse_date(date_str: &str, fmt: &str) -> Result<MyDateType> {
+    Ok(Date::strptime(fmt, date_str)?)
+}
+/// "%Y-%m-%d %H:%M:%S"
+pub fn parse_datetime(datetime_str: &str, fmt: &str) -> Result<MyDateTimeType> {
+    Ok(DateTime::strptime(fmt, datetime_str)?)
+}
+

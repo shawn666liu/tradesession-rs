@@ -31,7 +31,7 @@ pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>>
 
         let json = &record[json_idx];
         let slices = parse_json_slices(json)?;
-        let session = TradeSession::new(slices);
+        let session = TradeSession::new_from_slices(slices);
 
         hash.insert(record[key_idx].to_string(), session);
     }
@@ -40,17 +40,17 @@ pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>>
 }
 
 /// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
-/// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
+/// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
 /// 如果csv文件只有两列, 则第一列为产品名, 第二列为json字符串
 /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
-pub fn load_from_csv<P: AsRef<Path>>(path: P) -> Result<HashMap<String, TradeSession>> {
-    let path = path.as_ref();
+pub fn load_from_csv<P: AsRef<Path>>(csv_file_path: P) -> Result<HashMap<String, TradeSession>> {
+    let path = csv_file_path.as_ref();
     let file = File::open(path).with_context(|| path.display().to_string())?;
     return load_from_read(DecodeReaderBytes::new(file));
 }
 
 ///从csv文件内容加载，参数为csv文件字符串
-pub fn load_from_string(csv_content: &str) -> Result<HashMap<String, TradeSession>> {
+pub fn load_from_csv_content(csv_content: &str) -> Result<HashMap<String, TradeSession>> {
     return load_from_read(csv_content.as_bytes());
 }
 
@@ -61,7 +61,7 @@ pub fn load_from_json_map(
     let mut res_map: HashMap<String, TradeSession> = HashMap::new();
     for (k, v) in prd_vs_json {
         let res_vec: Vec<SessionSlice> = parse_json_slices(v)?;
-        let session = TradeSession::new(res_vec);
+        let session = TradeSession::new_from_slices(res_vec);
         res_map.insert(k.to_string(), session);
     }
     Ok(res_map)
@@ -71,23 +71,47 @@ pub struct SessionManager {
     sessions: HashMap<String, TradeSession>,
 }
 impl SessionManager {
-    pub fn new(session_map: HashMap<String, TradeSession>) -> Self {
+    /// 静态函数,生成一个股票交易时段
+    pub fn new_stock_session() -> TradeSession {
+        TradeSession::new_stock_session()
+    }
+
+    /// 静态函数,生成一个常规的股指期货交易时段
+    pub fn new_stock_index_session() -> TradeSession {
+        TradeSession::new_stock_index_session()
+    }
+
+    /// 静态函数,生成一个常规的商品期货交易时段(无夜盘)
+    pub fn new_commodity_session() -> TradeSession {
+        TradeSession::new_commodity_session()
+    }
+    /// 静态函数,生成一个常规的商品期货（不含金融期货）交易时段(含夜盘)
+    pub fn new_commodity_session_night() -> TradeSession {
+        TradeSession::new_commodity_session_night()
+    }
+
+    ////////////////////////////////////////////////////////////
+    pub fn new() -> Self {
+        Self {
+            sessions: HashMap::new(),
+        }
+    }
+    pub fn new_from_map(session_map: HashMap<String, TradeSession>) -> Self {
         Self {
             sessions: session_map,
         }
     }
     /// csv file path
-    pub fn new_from_csv<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let sessions = load_from_csv(path)?;
+    pub fn new_from_csv<P: AsRef<Path>>(csv_file: P) -> Result<Self> {
+        let sessions = load_from_csv(csv_file)?;
+        Ok(Self { sessions })
+    }
+    pub fn new_from_csv_content(csv_content: &str) -> Result<Self> {
+        let sessions = load_from_csv_content(csv_content)?;
         Ok(Self { sessions })
     }
     pub fn new_from_read<R: Read>(read: R) -> Result<Self> {
         let sessions = load_from_read(read)?;
-        Ok(Self { sessions })
-    }
-    /// csv file content
-    pub fn new_from_string(csv_content: &str) -> Result<Self> {
-        let sessions = load_from_string(csv_content)?;
         Ok(Self { sessions })
     }
     /// product vs json_session, when these two columns loaded from database
@@ -96,8 +120,31 @@ impl SessionManager {
         Ok(Self { sessions })
     }
 
+    pub fn reload_csv_contend(&mut self, csv_content: &str, merge: bool) -> Result<()> {
+        let sessions = load_from_csv_content(csv_content)?;
+        if merge {
+            self.sessions.extend(sessions);
+        } else {
+            self.sessions = sessions;
+        }
+        Ok(())
+    }
+    pub fn reload_csv_file<P: AsRef<Path>>(&mut self, csv_file_path: P, merge: bool) -> Result<()> {
+        let sessions = load_from_csv(csv_file_path)?;
+        if merge {
+            self.sessions.extend(sessions);
+        } else {
+            self.sessions = sessions;
+        }
+        Ok(())
+    }
+
     pub fn session_map(&self) -> &HashMap<String, TradeSession> {
         &self.sessions
+    }
+
+    pub fn has_session(&self, product: &str) -> bool {
+        self.sessions.contains_key(product)
     }
 
     pub fn get_session(&self, product: &str) -> Option<&TradeSession> {
@@ -125,6 +172,18 @@ impl SessionManager {
             .get(product)
             .map(|s| s.in_session(ts, include_begin, include_end))
     }
+
+    pub fn any_in_session(
+        &self,
+        product: &str,
+        start: &MyTimeType,
+        end: &MyTimeType,
+        include_begin_end: bool,
+    ) -> Option<bool> {
+        self.sessions
+            .get(product)
+            .map(|s| s.any_in_session(start, end, include_begin_end))
+    }
 }
 
 #[cfg(test)]
@@ -137,12 +196,12 @@ mod tests {
     #[test]
     fn tryload() -> anyhow::Result<()> {
         let csv_str = include_str!("../tradesession.csv");
-        let map_ = load_from_string(csv_str)?;
+        let map_ = load_from_csv_content(csv_str)?;
         for (k, v) in map_.iter() {
             println!("{}, {}", k, v);
         }
 
-        let s_mgr = SessionManager::new_from_string(csv_str)?;
+        let s_mgr = SessionManager::new_from_csv_content(csv_str)?;
         let session = s_mgr.get_session("ag").unwrap();
         println!("ag session: {}", session);
         let day_begin = s_mgr.day_begin("ag").unwrap();

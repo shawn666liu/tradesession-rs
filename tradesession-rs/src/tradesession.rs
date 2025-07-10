@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use serde_json::Value;
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::BTreeSet, fmt::Display};
 
 #[cfg(feature = "with-chrono")]
 use chrono::Timelike;
@@ -21,9 +21,19 @@ pub const SECS_IN_ONE_DAY: u32 = 86400;
 pub struct ShiftedTime(pub u32);
 
 impl ShiftedTime {
-    pub fn from_num_seconds_from_midnight(seconds: u32) -> Self {
+    /// 原始时间,尚未增加4小时
+    pub fn new_from_time(hour: u32, minute: u32) -> Self {
+        let seconds = hour * 3600 + minute * 60;
+        Self::new_from_midnight_seconds(seconds)
+    }
+    /// 原始秒数,尚未增加4小时
+    pub fn new_from_midnight_seconds(seconds: u32) -> Self {
         let secs = (seconds + SECS_IN_FOUR_HOURS) % SECS_IN_ONE_DAY;
         Self(secs)
+    }
+    /// seconds已经增加4小时
+    pub fn new_from_shifted(seconds: u32) -> Self {
+        Self(seconds)
     }
 
     /// Shift后的时间对应的秒数
@@ -64,13 +74,26 @@ impl ShiftedTime {
 
 impl Display for ShiftedTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}, sec {}, {}",
-            self.origin_time().format("%R"),
-            self.0,
-            self.shifted_time().format("%R")
-        )
+        #[cfg(feature = "with-chrono")]
+        {
+            write!(
+                f,
+                "{}, sec {}, {}",
+                self.origin_time().format("%R"),
+                self.0,
+                self.shifted_time().format("%R")
+            )
+        }
+        #[cfg(feature = "with-jiff")]
+        {
+            write!(
+                f,
+                "{}, sec {}, {}",
+                self.origin_time().strftime("%H:%M"),
+                self.0,
+                self.shifted_time().strftime("%H:%M")
+            )
+        }
     }
 }
 impl From<&MyTimeType> for ShiftedTime {
@@ -113,37 +136,36 @@ pub struct SessionSlice {
 }
 
 impl SessionSlice {
-    // /// increase 4 hours. 秒数加4小时, 再模86400, 即不超过1天, 变为内部数据
-    // #[inline]
-    // pub fn inc4hours(sec: u32) -> u32 {
-    //     (sec + SECS_IN_FOUR_HOURS) % SECS_IN_ONE_DAY
-    // }
-    // /// decrease 4 hours. 秒数减少4小时, 再模86400, 不超过1天, 恢复到正常数据
-    // #[inline]
-    // pub fn dec4hours(sec: u32) -> u32 {
-    //     // 直接减4小时可能为负数，先加一天再减
-    //     (sec + SECS_IN_ONE_DAY - SECS_IN_FOUR_HOURS) % SECS_IN_ONE_DAY
-    // }
-
-    /// 注意： 输入数据必须已经加过4小时了
-    fn internal_new(begin_sec: ShiftedTime, end_sec: ShiftedTime) -> Result<Self> {
-        if begin_sec >= end_sec {
-            return Err(anyhow!(
-                "SessionSlice: begin must less than end, but {} > {}",
-                begin_sec,
-                end_sec
-            ));
-        }
-
-        Ok(Self {
-            begin: begin_sec,
-            end: end_sec,
-        })
+    /// 用Time构造, begin必须小于end(除非开始时间大于20点且结束时间跨零点)
+    pub fn new(begin: &MyTimeType, end: &MyTimeType) -> Self {
+        Self::new_from_shifted(ShiftedTime::from(begin), ShiftedTime::from(end))
     }
 
-    /// 用Time构造
-    pub fn new(begin: &MyTimeType, end: &MyTimeType) -> Result<Self> {
-        Self::internal_new(ShiftedTime::from(begin), ShiftedTime::from(end))
+    /// 注意： 输入数据必须已经加过4小时了, begin必须小于end
+    pub fn new_from_shifted(begin_sec: ShiftedTime, end_sec: ShiftedTime) -> Self {
+        assert!(begin_sec < end_sec, "begin must less than end");
+        if begin_sec >= end_sec {
+            panic!(
+                "begin must less than end, but got begin: {}, end: {}",
+                begin_sec, end_sec
+            );
+        }
+        Self {
+            begin: begin_sec,
+            end: end_sec,
+        }
+    }
+
+    /// 原始时间，尚未增加4小时, start时间必须小于end(除非开始时间大于20点且结束时间跨零点)
+    pub fn new_from_time(
+        start_hour: u32,
+        start_minute: u32,
+        end_hour: u32,
+        end_minute: u32,
+    ) -> Self {
+        let begin_sec = ShiftedTime::new_from_time(start_hour, start_minute);
+        let end_sec = ShiftedTime::new_from_time(end_hour, end_minute);
+        Self::new_from_shifted(begin_sec, end_sec)
     }
 
     /// 注意：超前4小时
@@ -165,29 +187,47 @@ impl SessionSlice {
             (false, false) => sec > self.begin && sec < self.end,
         }
     }
-    // /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
-    // /// 注意：所有数值超前4小时
-    // pub fn to_minustes_vec(&self) -> Vec<u32> {
-    //     let mut v = Vec::<u32>::new();
-    //     let mut start = self.begin_sec;
-    //     while start < self.end_sec {
-    //         v.push(start / 60);
-    //         start += 60;
-    //     }
-    //     v
-    // }
+
+    /// 是否为夜盘交易， 所有夜盘的开始时间都是21:00
+    pub fn is_night(&self) -> bool {
+        // 21:00前移4小时为1:00, 数值应是3600秒
+        self.begin.secs() == 3600
+    }
+
+    /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
+    /// 注意：所有数值超前4小时
+    pub fn minutes_set(&self) -> BTreeSet<u32> {
+        let start_minute = self.begin.secs() / 60;
+        let end_minute = self.end.secs() / 60;
+        // 注意：end_minute不包含在内
+        (start_minute..end_minute).collect()
+    }
 }
 
 impl Display for SessionSlice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "raw({}~{}), act({}~{})",
-            self.begin.shifted_time().format("%R"),
-            self.end.shifted_time().format("%R"),
-            self.begin.origin_time().format("%R"),
-            self.end.origin_time().format("%R"),
-        )
+        #[cfg(feature = "with-chrono")]
+        {
+            write!(
+                f,
+                "raw({}~{}), act({}~{})",
+                self.begin.shifted_time().format("%R"),
+                self.end.shifted_time().format("%R"),
+                self.begin.origin_time().format("%R"),
+                self.end.origin_time().format("%R"),
+            )
+        }
+        #[cfg(feature = "with-jiff")]
+        {
+            write!(
+                f,
+                "raw({}~{}), act({}~{})",
+                self.begin.shifted_time().strftime("%H:%M"),
+                self.end.shifted_time().strftime("%H:%M"),
+                self.begin.origin_time().strftime("%H:%M"),
+                self.end.origin_time().strftime("%H:%M"),
+            )
+        }
     }
 }
 
@@ -198,94 +238,84 @@ pub struct TradeSession {
     day_begin: MyTimeType,
     ///该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
     day_end: MyTimeType,
+
+    shifted_day_begin: ShiftedTime,
+    shifted_day_end: ShiftedTime,
 }
 
 impl TradeSession {
-    pub fn new(slices: Vec<SessionSlice>) -> Self {
-        let mut session = Self {
-            slices,
-            day_begin: make_time(9, 0, 0),
-            day_end: make_time(15, 0, 0),
-        };
+    pub fn new() -> Self {
+        let day_begin = make_time(9, 0, 0);
+        let day_end = make_time(15, 0, 0);
+        let shifted_day_begin = ShiftedTime::from(day_begin);
+        let shifted_day_end = ShiftedTime::from(day_end);
+        Self {
+            slices: vec![],
+            day_begin,
+            day_end,
+            shifted_day_begin,
+            shifted_day_end,
+        }
+    }
+    pub fn new_from_slices(slices: Vec<SessionSlice>) -> Self {
+        let mut session = Self::new();
+        session.slices.extend(slices);
         session.post_fix();
+        session
+    }
+
+    pub fn new_from_minutes(minutes: &BTreeSet<u32>) -> Self {
+        let mut session = TradeSession::new();
+        session.load_from_minutes(minutes);
         session
     }
 
     /// 生成一个股票的交易时段
     pub fn new_stock_session() -> Self {
-        let mut ss = TradeSession::new(vec![]);
-        ss.add_slice(
-            SessionSlice::new(&make_time(9, 30, 0), &make_time(11, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(13, 0, 0), &make_time(15, 0, 0)).expect("no fail"),
-        );
+        let mut ss = TradeSession::new();
+        ss.add_slice(9, 30, 11, 30);
+        ss.add_slice(13, 0, 15, 0);
         ss.post_fix();
         ss
     }
 
     /// 生成一个股指期货的交易时段
     pub fn new_stock_index_session() -> Self {
-        let mut ss = TradeSession::new(vec![]);
-        ss.add_slice(
-            SessionSlice::new(&make_time(9, 15, 0), &make_time(11, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(13, 0, 0), &make_time(15, 0, 0)).expect("no fail"),
-        );
+        let mut ss = TradeSession::new();
+        ss.add_slice(9, 15, 11, 30);
+        ss.add_slice(13, 0, 15, 0);
         ss.post_fix();
         ss
     }
 
     /// 生成一个常规的商品期货交易时段(无夜盘)
     pub fn new_commodity_session() -> Self {
-        let mut ss = TradeSession::new(vec![]);
-        ss.add_slice(
-            SessionSlice::new(&make_time(9, 0, 0), &make_time(10, 15, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(10, 30, 0), &make_time(11, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(13, 30, 0), &make_time(15, 0, 0)).expect("no fail"),
-        );
-        ss.post_fix();
+        let mut ss = TradeSession::new();
+        ss.add_slice(9, 0, 10, 15)
+            .add_slice(10, 30, 11, 30)
+            .add_slice(13, 30, 15, 0)
+            .post_fix();
         ss
     }
 
     /// 生成一个常规的商品期货（不含金融期货）交易时段(含夜盘)
     pub fn new_commodity_session_night() -> Self {
-        let mut ss = TradeSession::new(vec![]);
+        let mut ss = TradeSession::new();
         // 添加夜盘 21:00 ~ 2:30
-        ss.add_slice(
-            SessionSlice::new(&make_time(21, 0, 0), &make_time(2, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(9, 0, 0), &make_time(10, 15, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(10, 30, 0), &make_time(11, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(13, 30, 0), &make_time(15, 0, 0)).expect("no fail"),
-        );
+        ss.add_slice(21, 0, 2, 30);
+        ss.add_slice(9, 0, 10, 15);
+        ss.add_slice(10, 30, 11, 30);
+        ss.add_slice(13, 30, 15, 0);
         ss.post_fix();
         ss
     }
 
     /// 生成一个涵盖商品股指国债股票等的全部交易时段(含夜盘)
     pub fn new_full_session() -> Self {
-        let mut ss = TradeSession::new(vec![]);
-        // 添加夜盘 21:00 ~ 2:30
-        ss.add_slice(
-            SessionSlice::new(&make_time(21, 0, 0), &make_time(2, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(9, 0, 0), &make_time(11, 30, 0)).expect("no fail"),
-        );
-        ss.add_slice(
-            SessionSlice::new(&make_time(13, 30, 0), &make_time(15, 15, 0)).expect("no fail"),
-        );
+        let mut ss = TradeSession::new();
+        ss.add_slice(21, 0, 2, 30);
+        ss.add_slice(9, 0, 11, 30);
+        ss.add_slice(13, 30, 15, 0);
         ss.post_fix();
         ss
     }
@@ -307,10 +337,20 @@ impl TradeSession {
         &self.day_end
     }
 
+    pub fn shifted_day_begin(&self) -> ShiftedTime {
+        self.shifted_day_begin
+    }
+    pub fn shifted_day_end(&self) -> ShiftedTime {
+        self.shifted_day_end
+    }
+
     /// 一个时间点, 在时段内吗? 一般应含开始(include_begin?), 是否含结束(include_end?)
     pub fn in_session(&self, ts: &MyTimeType, include_begin: bool, include_end: bool) -> bool {
         let sec = ShiftedTime::from(ts);
         for slice in &self.slices {
+            // 由于每一次调用slice.in_slice(&ts,...)内部都需要转换ts到sec,
+            // 所以这里复制代码逻辑，仅转换ts到sec一次
+            // let found = slice.in_slice(&ts, include_begin, include_end);
             let found = match (include_begin, include_end) {
                 (true, true) => sec >= slice.begin && sec <= slice.end,
                 (true, false) => sec >= slice.begin && sec < slice.end,
@@ -323,29 +363,51 @@ impl TradeSession {
         }
         return false;
     }
+
+    /// start, end之间任意时间点落在session中吗?
+    pub fn any_in_session(
+        &self,
+        start: &MyTimeType,
+        end: &MyTimeType,
+        include_begin_end: bool,
+    ) -> bool {
+        let start = ShiftedTime::from(start);
+        let end = ShiftedTime::from(end);
+        self.slices.iter().any(|slice| {
+            (include_begin_end && start >= slice.begin && end <= slice.end)
+                || (!include_begin_end && start > slice.begin && end < slice.end)
+        })
+    }
+
     /// 所有add_slice调用完毕之后，应该调用post_fix进行整合
-    pub fn add_slice(&mut self, slice: SessionSlice) -> &mut Self {
+    pub fn add_slice_directly(&mut self, slice: SessionSlice) -> &mut Self {
         self.slices.push(slice);
         self
     }
 
-    /// 在所有Slice都加入之后，合并连续Slice，移除重叠等，并计算day_begin、day_end的值
-    pub fn post_fix(&mut self) {
+    /// 输入的是原始时间，尚未平移, 注意：结束时间应大于开始时间(除非开始时间大于20点且结束时间跨零点)
+    /// 所有add_slice调用完毕之后，应该调用post_fix进行整合
+    pub fn add_slice(
+        &mut self,
+        start_hour: u32,
+        start_minute: u32,
+        end_hour: u32,
+        end_minute: u32,
+    ) -> &mut Self {
+        self.slices.push(SessionSlice::new_from_time(
+            start_hour,
+            start_minute,
+            end_hour,
+            end_minute,
+        ));
+        self
+    }
+
+    /// 这里假定slice已经处理过了，是正确的
+    pub fn fix_day_begin_end(&mut self) {
         if self.slices.is_empty() {
             return;
         }
-        // BTree自动排序并移除重复的begin_sec
-        let dict: BTreeMap<ShiftedTime, ShiftedTime> = self
-            .slices
-            .iter()
-            .map(|slice| (slice.begin, slice.end))
-            .collect();
-        // todo: 重叠检测及移除，连续项合并等，暂时不做
-
-        self.slices = dict
-            .into_iter()
-            .map(|(k, v)| SessionSlice::internal_new(k, v).expect("no fail"))
-            .collect();
 
         let first = self.slices.first().expect("no fail");
         let last = self.slices.last().expect("no fail");
@@ -353,24 +415,94 @@ impl TradeSession {
         self.day_end = last.end.into();
     }
 
-    // /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
-    // /// 注意：所有数值超前4小时
-    // pub fn to_minustes_vec(&self) -> Vec<u32> {
-    //     let mut v = Vec::<u32>::new();
-    //     for slice in self.slices.iter() {
-    //         v.append(&mut slice.to_minustes_vec())
-    //     }
-    //     v
-    // }
+    /// 在所有Slice都加入之后，使用minutes方式重算，合并并移除重叠等，计算day_begin、day_end的值
+    pub fn post_fix(&mut self) {
+        if self.slices.is_empty() {
+            return;
+        }
+        let minutes = self.minutes_set();
+        self.load_from_minutes(&minutes);
+    }
+
+    /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
+    /// 注意：所有数值超前4小时
+    /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
+    /// 应用场景2：比如仅交易了5个品种，要检查这些品种开市时间段有行情，用以求这些Session的并集
+    pub fn minutes_set(&self) -> BTreeSet<u32> {
+        self.slices
+            .iter()
+            .flat_map(|slice| slice.minutes_set())
+            .collect()
+    }
+    pub fn load_from_minutes(&mut self, minutes: &BTreeSet<u32>) {
+        self.internal_load_minutes(minutes);
+        self.fix_day_begin_end();
+    }
+
+    fn internal_load_minutes(&mut self, minutes: &BTreeSet<u32>) {
+        self.slices.clear();
+        if minutes.is_empty() {
+            return;
+        }
+
+        let mut current_start = None;
+        let mut prev_minute = None;
+
+        for &minute in minutes {
+            match (current_start, prev_minute) {
+                (None, _) => {
+                    current_start = Some(minute);
+                    prev_minute = Some(minute);
+                }
+                (Some(_), Some(prev)) if minute == prev + 1 => {
+                    prev_minute = Some(minute);
+                }
+                (Some(start), Some(prev)) => {
+                    // 中间不连续时，slice结束
+                    self.slices.push(SessionSlice {
+                        begin: ShiftedTime(start * 60),
+                        end: ShiftedTime(prev * 60 + 60),
+                    });
+                    current_start = Some(minute);
+                    prev_minute = Some(minute);
+                }
+                (Some(_), None) => {
+                    //impossible case, but to satisfy the match
+                    unreachable!("current_start should not be Some without prev_minute");
+                }
+            }
+        }
+
+        // 添加最后一个块（此时 current_start 和 prev_minute 必然都有值）
+        if let (Some(start), Some(end)) = (current_start, prev_minute) {
+            self.slices.push(SessionSlice {
+                begin: ShiftedTime(start * 60),
+                end: ShiftedTime(end * 60 + 60),
+            });
+        }
+    }
 }
+
 impl Display for TradeSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "day_begin: {}, day_end: {}\n",
-            self.day_begin.format("%R"),
-            self.day_end.format("%R")
-        )?;
+        #[cfg(feature = "with-chrono")]
+        {
+            write!(
+                f,
+                "day_begin: {}, day_end: {}\n",
+                self.day_begin.format("%R"),
+                self.day_end.format("%R")
+            )?;
+        }
+        #[cfg(feature = "with-jiff")]
+        {
+            write!(
+                f,
+                "day_begin: {}, day_end: {}\n",
+                self.day_begin.strftime("%H:%M"),
+                self.day_end.strftime("%H:%M")
+            )?;
+        }
         for (idx, sec) in self.slices.iter().enumerate() {
             write!(f, "{}: {}\n", idx, sec)?;
         }
@@ -389,18 +521,9 @@ pub fn parse_json_slices(json: &str) -> Result<Vec<SessionSlice>> {
                 // println!("{} ~ {}", elem["Begin"], elem["End"]);
                 match (&elem["begin"], &elem["end"]) {
                     (Value::String(bb), Value::String(ee)) => {
-                        #[cfg(feature = "with-jiff")]
-                        {
-                            let begin = MyTimeType::strptime("%H:%M:%S", bb)?;
-                            let end = MyTimeType::strptime("%H:%M:%S", ee)?;
-                            res.push(SessionSlice::new(&begin, &end)?);
-                        }
-                        #[cfg(feature = "with-chrono")]
-                        {
-                            let begin = MyTimeType::parse_from_str(bb, "%H:%M:%S")?;
-                            let end = MyTimeType::parse_from_str(ee, "%H:%M:%S")?;
-                            res.push(SessionSlice::new(&begin, &end)?);
-                        }
+                        let begin = parse_time(bb, "%H:%M:%S")?;
+                        let end = parse_time(ee, "%H:%M:%S")?;
+                        res.push(SessionSlice::new(&begin, &end));
                     }
                     _ => return Err(anyhow!("trade session解析错误: {}", elem)),
                 }
@@ -418,10 +541,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn slice_to_minutes() {
+        let slice = SessionSlice::new_from_time(9, 0, 9, 5);
+        let mut minutes = slice.minutes_set();
+        println!("slice minutes: {:?}", minutes);
+        assert_eq!(minutes.len(), 5);
+        assert!(minutes.contains(&780)); // 9:00 is 540 + 240 minutes
+        assert!(minutes.contains(&781)); // 9:01 is 541 + 240 minutes
+        assert!(minutes.contains(&782)); // 9:02 is 542 + 240 minutes
+        assert!(minutes.contains(&783)); // 9:03 is 543 + 240 minutes
+        assert!(minutes.contains(&784)); // 9:04 is 544 + 240 minutes
+        assert!(!minutes.contains(&785)); // 9:05 is not included
+
+        minutes.insert(840); // 10:00 is 780 + 60 minutes
+        minutes.insert(841); // 10:01 is 781 + 60 minutes
+
+        let session = TradeSession::new_from_minutes(&minutes);
+        let minutes2 = session.minutes_set();
+        println!("slice minutes2: {:?}", minutes2);
+
+        assert_eq!(minutes == minutes2, true);
+        assert_eq!(session.slices.len(), 2);
+        for slice in &session.slices {
+            println!("{}", slice);
+        }
+    }
+
+    #[test]
     fn _trade_session() {
         let stk = TradeSession::new_commodity_session_night();
-        // let v = stk.to_minustes_vec();
-        // println!("{:?}", v);
+        assert_eq!(stk.slices.len(), 4);
+        for slice in &stk.slices {
+            println!("{}", slice);
+        }
         assert!(!stk.in_session(&make_time(8, 59, 10), true, false));
         assert!(stk.in_session(&make_time(9, 59, 10), true, false));
         assert!(stk.in_session(&make_time(0, 59, 10), true, false));
@@ -430,6 +582,14 @@ mod tests {
         // 国债???
         //assert!(stk.in_session(&make_time(15, 14, 59), true, false));
         // assert!(!stk.in_session(&make_time(15, 15, 0), true, false));
+
+        let slice = SessionSlice::new_from_time(21, 0, 2, 30);
+        assert!(slice.is_night());
+        assert_eq!(slice.begin(), ShiftedTime::from(make_time(21, 0, 0)));
+        assert_eq!(slice.end(), ShiftedTime::from(make_time(2, 30, 0)));
+
+        let slice = SessionSlice::new_from_time(9, 0, 10, 15);
+        assert!(!slice.is_night());
     }
 
     #[test]

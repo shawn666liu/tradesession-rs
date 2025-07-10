@@ -1,4 +1,4 @@
-// use anyhow::{anyhow, Result};
+use anyhow::Result;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 pub type MyDateType = NaiveDate;
@@ -75,4 +75,17 @@ pub fn time_from_midnight_nanos(time_nanos: i64) -> MyTimeType {
 pub fn time_to_midnight_nanos(time: &NaiveTime) -> i64 {
     let secs = time.num_seconds_from_midnight() as i64;
     secs * 1_000_000_000 + time.nanosecond() as i64
+}
+
+/// "%H:%M:%S"
+pub fn parse_time(time_str: &str, fmt: &str) -> Result<MyTimeType> {
+    Ok(NaiveTime::parse_from_str(time_str, fmt)?)
+}
+/// "%Y-%m-%d"
+pub fn parse_date(date_str: &str, fmt: &str) -> Result<MyDateType> {
+    Ok(NaiveDate::parse_from_str(date_str, fmt)?)
+}
+/// "%Y-%m-%d %H:%M:%S"
+pub fn parse_datetime(datetime_str: &str, fmt: &str) -> Result<MyDateTimeType> {
+    Ok(NaiveDateTime::parse_from_str(datetime_str, fmt)?)
 }
