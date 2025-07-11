@@ -1,4 +1,6 @@
 use anyhow::{Result, anyhow};
+use cxx::CxxVector;
+use std::collections::BTreeSet;
 use tradesession::{SessionManager, TradeSession};
 
 use tradesession::jcswitch::{time_from_midnight_nanos, time_to_midnight_nanos};
@@ -8,6 +10,12 @@ pub struct SessionPP {
 }
 pub struct SessionMgr {
     mgr: SessionManager,
+}
+
+pub fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP> {
+    let minutes: BTreeSet<u32> = minutes.iter().map(|&m| m).collect();
+    let session = TradeSession::new_from_minutes(&minutes);
+    Box::new(SessionPP { session })
 }
 
 pub fn new_mgr() -> Box<SessionMgr> {
@@ -79,6 +87,9 @@ impl SessionPP {
         let start = time_from_midnight_nanos(nanos_since_midnight_start);
         let end = time_from_midnight_nanos(nanos_since_midnight_end);
         self.session.any_in_session(&start, &end, include_begin_end)
+    }
+    pub fn minutes_list(&self) -> Vec<u32> {
+        self.session.minutes_list().iter().map(|tm| *tm).collect()
     }
 }
 
@@ -156,6 +167,7 @@ mod ffi {
     extern "Rust" {
         type SessionPP;
         type SessionMgr;
+        fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP>;
         fn new_mgr() -> Box<SessionMgr>;
         /// 创建失败时会爆出异常
         fn new_from_csv(csv_file_path: &str) -> Result<Box<SessionMgr>>;

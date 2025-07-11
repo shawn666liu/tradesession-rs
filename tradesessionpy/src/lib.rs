@@ -4,6 +4,7 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
+use std::collections::BTreeSet;
 
 use tradesession::{SessionManager, TradeSession};
 
@@ -21,6 +22,42 @@ pub struct SessionPP {
 #[pyclass]
 pub struct SessionMgr {
     mgr: SessionManager,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl SessionPP {
+    #[new]
+    pub fn new(minutes: Vec<u32>) -> PyResult<Self> {
+        let minutes: BTreeSet<u32> = minutes.into_iter().collect();
+        let session = TradeSession::new_from_minutes(&minutes);
+        Ok(SessionPP { session })
+    }
+
+    pub fn day_begin(&self) -> NaiveTime {
+        self.session.day_begin().clone()
+    }
+
+    pub fn day_end(&self) -> NaiveTime {
+        self.session.day_end().clone()
+    }
+
+    pub fn in_session(&self, ts: NaiveTime, include_begin: bool, include_end: bool) -> bool {
+        self.session.in_session(&ts, include_begin, include_end)
+    }
+    /// start, end之间任意时间点落在session中吗?
+    pub fn any_in_session(
+        &self,
+        start: NaiveTime,
+        end: NaiveTime,
+        include_begin_end: bool,
+    ) -> bool {
+        self.session.any_in_session(&start, &end, include_begin_end)
+    }
+
+    pub fn minutes_list(&self) -> Vec<u32> {
+        self.session.minutes_list().iter().cloned().collect()
+    }
 }
 
 #[gen_stub_pymethods]
@@ -133,31 +170,6 @@ impl SessionMgr {
             .mgr
             .any_in_session(product, &start, &end, include_begin_end);
         opt.ok_or_else(|| to_pyerr(anyhow!("Session for product '{}' not found", product)))
-    }
-}
-
-#[gen_stub_pymethods]
-#[pymethods]
-impl SessionPP {
-    pub fn day_begin(&self) -> NaiveTime {
-        self.session.day_begin().clone()
-    }
-
-    pub fn day_end(&self) -> NaiveTime {
-        self.session.day_end().clone()
-    }
-
-    pub fn in_session(&self, ts: NaiveTime, include_begin: bool, include_end: bool) -> bool {
-        self.session.in_session(&ts, include_begin, include_end)
-    }
-    /// start, end之间任意时间点落在session中吗?
-    pub fn any_in_session(
-        &self,
-        start: NaiveTime,
-        end: NaiveTime,
-        include_begin_end: bool,
-    ) -> bool {
-        self.session.any_in_session(&start, &end, include_begin_end)
     }
 }
 

@@ -196,7 +196,7 @@ impl SessionSlice {
 
     /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
     /// 注意：所有数值超前4小时
-    pub fn minutes_set(&self) -> BTreeSet<u32> {
+    pub fn minutes_list(&self) -> BTreeSet<u32> {
         let start_minute = self.begin.secs() / 60;
         let end_minute = self.end.secs() / 60;
         // 注意：end_minute不包含在内
@@ -420,7 +420,7 @@ impl TradeSession {
         if self.slices.is_empty() {
             return;
         }
-        let minutes = self.minutes_set();
+        let minutes = self.minutes_list();
         self.load_from_minutes(&minutes);
     }
 
@@ -428,10 +428,10 @@ impl TradeSession {
     /// 注意：所有数值超前4小时
     /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
     /// 应用场景2：比如仅交易了5个品种，要检查这些品种开市时间段有行情，用以求这些Session的并集
-    pub fn minutes_set(&self) -> BTreeSet<u32> {
+    pub fn minutes_list(&self) -> BTreeSet<u32> {
         self.slices
             .iter()
-            .flat_map(|slice| slice.minutes_set())
+            .flat_map(|slice| slice.minutes_list())
             .collect()
     }
     pub fn load_from_minutes(&mut self, minutes: &BTreeSet<u32>) {
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn slice_to_minutes() {
         let slice = SessionSlice::new_from_time(9, 0, 9, 5);
-        let mut minutes = slice.minutes_set();
+        let mut minutes = slice.minutes_list();
         println!("slice minutes: {:?}", minutes);
         assert_eq!(minutes.len(), 5);
         assert!(minutes.contains(&780)); // 9:00 is 540 + 240 minutes
@@ -557,7 +557,7 @@ mod tests {
         minutes.insert(841); // 10:01 is 781 + 60 minutes
 
         let session = TradeSession::new_from_minutes(&minutes);
-        let minutes2 = session.minutes_set();
+        let minutes2 = session.minutes_list();
         println!("slice minutes2: {:?}", minutes2);
 
         assert_eq!(minutes == minutes2, true);

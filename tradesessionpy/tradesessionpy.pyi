@@ -3,6 +3,7 @@
 
 import builtins
 import datetime
+import typing
 
 class SessionMgr:
     def __new__(cls) -> SessionMgr: ...
@@ -57,6 +58,7 @@ class SessionMgr:
         """
 
 class SessionPP:
+    def __new__(cls, minutes:typing.Sequence[builtins.int]) -> SessionPP: ...
     def day_begin(self) -> datetime.time: ...
     def day_end(self) -> datetime.time: ...
     def in_session(self, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool: ...
@@ -64,4 +66,5 @@ class SessionPP:
         r"""
         start, end之间任意时间点落在session中吗?
         """
+    def minutes_list(self) -> builtins.list[builtins.int]: ...
 
