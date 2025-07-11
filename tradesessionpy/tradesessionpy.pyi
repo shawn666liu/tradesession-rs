@@ -26,7 +26,7 @@ class SessionMgr:
     def new_stock_index_session() -> SessionPP: ...
     @staticmethod
     def new_full_session() -> SessionPP: ...
-    def reload_csv_contend(self, csv_content:builtins.str, merge:builtins.bool) -> None:
+    def reload_csv_content(self, csv_content:builtins.str, merge:builtins.bool) -> None:
         r"""
         ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
         """
