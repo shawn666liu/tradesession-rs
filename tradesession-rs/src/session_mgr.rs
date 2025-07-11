@@ -120,7 +120,7 @@ impl SessionManager {
         Ok(Self { sessions })
     }
 
-    pub fn reload_csv_contend(&mut self, csv_content: &str, merge: bool) -> Result<()> {
+    pub fn reload_csv_content(&mut self, csv_content: &str, merge: bool) -> Result<()> {
         let sessions = load_from_csv_content(csv_content)?;
         if merge {
             self.sessions.extend(sessions);

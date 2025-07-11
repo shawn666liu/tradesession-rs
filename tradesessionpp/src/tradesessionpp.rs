@@ -83,8 +83,8 @@ impl SessionPP {
 }
 
 impl SessionMgr {
-    pub fn reload_csv_contend(&mut self, csv_content: &str, merge: bool) -> Result<()> {
-        self.mgr.reload_csv_contend(csv_content, merge)
+    pub fn reload_csv_content(&mut self, csv_content: &str, merge: bool) -> Result<()> {
+        self.mgr.reload_csv_content(csv_content, merge)
     }
     pub fn reload_csv_file(&mut self, csv_file_path: &str, merge: bool) -> Result<()> {
         self.mgr.reload_csv_file(csv_file_path, merge)
@@ -171,7 +171,7 @@ mod ffi {
         /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
         /// 如果csv文件只有两列, 则第一列为产品名, 第二列为json字符串
         /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
-        fn reload_csv_contend(self: &mut SessionMgr, csv_content: &str, merge: bool) -> Result<()>;
+        fn reload_csv_content(self: &mut SessionMgr, csv_content: &str, merge: bool) -> Result<()>;
         /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
         fn reload_csv_file(self: &mut SessionMgr, csv_file_path: &str, merge: bool) -> Result<()>;
         fn day_begin(self: &SessionPP) -> i64;

@@ -71,9 +71,9 @@ impl SessionMgr {
         SessionPP { session }
     }
     /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
-    pub fn reload_csv_contend(&mut self, csv_content: &str, merge: bool) -> PyResult<()> {
+    pub fn reload_csv_content(&mut self, csv_content: &str, merge: bool) -> PyResult<()> {
         self.mgr
-            .reload_csv_contend(csv_content, merge)
+            .reload_csv_content(csv_content, merge)
             .map_err(to_pyerr)
     }
     /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
