@@ -6,6 +6,7 @@ import datetime
 import typing
 
 class SessionMgr:
+    sessions_count: builtins.int
     def __new__(cls) -> SessionMgr: ...
     @staticmethod
     def new_from_csv(csv_file_path:builtins.str) -> SessionMgr:
@@ -40,7 +41,11 @@ class SessionMgr:
         r"""
         获取失败时会爆出异常
         """
-    def in_session(self, product:builtins.str, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool:
+    def morning_begin(self, product:builtins.str) -> datetime.time:
+        r"""
+        获取失败时会爆出异常
+        """
+    def in_session(self, product:builtins.str, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool=False) -> builtins.bool:
         r"""
         获取失败时会爆出异常
         """
@@ -48,7 +53,7 @@ class SessionMgr:
         r"""
         start, end之间任意时间点落在session中吗?
         """
-    def sessions_count(self) -> builtins.int: ...
+    def session_map(self) -> builtins.dict[builtins.str, TradeSession]: ...
 
 class TradeSession:
     @staticmethod
@@ -62,9 +67,23 @@ class TradeSession:
     @staticmethod
     def new_full_session() -> TradeSession: ...
     def __new__(cls, minutes:typing.Sequence[builtins.int]) -> TradeSession: ...
-    def day_begin(self) -> datetime.time: ...
-    def day_end(self) -> datetime.time: ...
-    def in_session(self, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool) -> builtins.bool: ...
+    def day_begin(self) -> datetime.time:
+        r"""
+        该品种日线开始时间，9:00/9:15/9:30/21:00, 一般是集合竞价所在的时间
+        """
+    def day_end(self) -> datetime.time:
+        r"""
+        该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
+        """
+    def morning_begin(self) -> datetime.time:
+        r"""
+        该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
+        """
+    def has_nigth(self) -> builtins.bool:
+        r"""
+        是否有夜盘交易
+        """
+    def in_session(self, ts:datetime.time, include_begin:builtins.bool, include_end:builtins.bool=False) -> builtins.bool: ...
     def any_in_session(self, start:datetime.time, end:datetime.time, include_begin_end:builtins.bool) -> builtins.bool:
         r"""
         start, end之间任意时间点落在session中吗?
@@ -72,4 +91,5 @@ class TradeSession:
     def minutes_list(self) -> builtins.list[builtins.int]: ...
     def add_slice(self, start_hour:builtins.int, start_minute:builtins.int, end_hour:builtins.int, end_minute:builtins.int) -> None: ...
     def post_fix(self) -> None: ...
+    def __str__(self) -> builtins.str: ...
 

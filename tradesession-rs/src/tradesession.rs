@@ -37,17 +37,17 @@ impl ShiftedTime {
     }
 
     /// Shift后的时间对应的秒数
-    pub fn secs(&self) -> u32 {
+    pub fn seconds(&self) -> u32 {
         self.0
     }
 
     /// 原始时间对应的秒数
-    pub fn origin_secs(&self) -> u32 {
+    pub fn origin_seconds(&self) -> u32 {
         (self.0 + SECS_IN_ONE_DAY - SECS_IN_FOUR_HOURS) % SECS_IN_ONE_DAY
     }
 
     pub fn origin_time(&self) -> MyTimeType {
-        let secs = self.origin_secs();
+        let secs = self.origin_seconds();
         let h = secs / (60 * 60);
         let m = secs % (60 * 60) / 60;
         let s = secs % 60;
@@ -191,14 +191,14 @@ impl SessionSlice {
     /// 是否为夜盘交易， 所有夜盘的开始时间都是21:00
     pub fn is_night(&self) -> bool {
         // 21:00前移4小时为1:00, 数值应是3600秒
-        self.begin.secs() == 3600
+        self.begin.seconds() == 3600
     }
 
     /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
     /// 注意：所有数值超前4小时
     pub fn minutes_list(&self) -> BTreeSet<u32> {
-        let start_minute = self.begin.secs() / 60;
-        let end_minute = self.end.secs() / 60;
+        let start_minute = self.begin.seconds() / 60;
+        let end_minute = self.end.seconds() / 60;
         // 注意：end_minute不包含在内
         (start_minute..end_minute).collect()
     }
@@ -238,23 +238,20 @@ pub struct TradeSession {
     day_begin: MyTimeType,
     ///该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
     day_end: MyTimeType,
-
-    shifted_day_begin: ShiftedTime,
-    shifted_day_end: ShiftedTime,
+    /// 该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
+    morning_begin: MyTimeType,
 }
 
 impl TradeSession {
     pub fn new() -> Self {
         let day_begin = make_time(9, 0, 0);
         let day_end = make_time(15, 0, 0);
-        let shifted_day_begin = ShiftedTime::from(day_begin);
-        let shifted_day_end = ShiftedTime::from(day_end);
+        let morning_begin = day_begin.clone();
         Self {
             slices: vec![],
             day_begin,
             day_end,
-            shifted_day_begin,
-            shifted_day_end,
+            morning_begin,
         }
     }
     pub fn new_from_slices(slices: Vec<SessionSlice>) -> Self {
@@ -336,12 +333,13 @@ impl TradeSession {
     pub fn day_end(&self) -> &MyTimeType {
         &self.day_end
     }
-
-    pub fn shifted_day_begin(&self) -> ShiftedTime {
-        self.shifted_day_begin
+    /// 该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
+    pub fn morning_begin(&self) -> &MyTimeType {
+        &self.morning_begin
     }
-    pub fn shifted_day_end(&self) -> ShiftedTime {
-        self.shifted_day_end
+    /// 是否有夜盘交易
+    pub fn has_nigth(&self) -> bool {
+        self.slices.iter().any(|slice| slice.is_night())
     }
 
     /// 一个时间点, 在时段内吗? 一般应含开始(include_begin?), 是否含结束(include_end?)
@@ -408,11 +406,23 @@ impl TradeSession {
         if self.slices.is_empty() {
             return;
         }
+        // 早盘开始时间一般是9:00/9:15/9:30, 所以寻找开始时间在[9:00, 10:00)之间的第一个slice, 其开始时间是morning_begin
 
         let first = self.slices.first().expect("no fail");
         let last = self.slices.last().expect("no fail");
         self.day_begin = first.begin.into();
         self.day_end = last.end.into();
+
+        // 9:00 shift后(9+4)*3600 = 46800, 10:00 shift后50400
+        let morning = self.slices.iter().find(|slice| {
+            let secs = slice.begin.seconds();
+            secs >= 46800 && secs < 50400
+        });
+        if let Some(slice) = morning {
+            self.morning_begin = slice.begin.into();
+        } else {
+            self.morning_begin = self.day_begin.clone();
+        }
     }
 
     /// 在所有Slice都加入之后，使用minutes方式重算，合并并移除重叠等，计算day_begin、day_end的值
@@ -489,8 +499,9 @@ impl Display for TradeSession {
         {
             write!(
                 f,
-                "day_begin: {}, day_end: {}\n",
+                "day_begin:{}, morning_begin:{}, day_end:{}",
                 self.day_begin.format("%R"),
+                self.morning_begin.format("%R"),
                 self.day_end.format("%R")
             )?;
         }
@@ -498,13 +509,14 @@ impl Display for TradeSession {
         {
             write!(
                 f,
-                "day_begin: {}, day_end: {}\n",
+                "day_begin:{}, morning_begin:{}, day_end:{}",
                 self.day_begin.strftime("%H:%M"),
+                self.morning_begin.strftime("%H:%M"),
                 self.day_end.strftime("%H:%M")
             )?;
         }
         for (idx, sec) in self.slices.iter().enumerate() {
-            write!(f, "{}: {}\n", idx, sec)?;
+            write!(f, "\n{}: {}", idx + 1, sec)?;
         }
         Ok(())
     }

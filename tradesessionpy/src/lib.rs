@@ -4,7 +4,7 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use tradesession;
 
@@ -64,15 +64,27 @@ impl TradeSession {
         Ok(Self { session })
     }
 
+    /// 该品种日线开始时间，9:00/9:15/9:30/21:00, 一般是集合竞价所在的时间
     pub fn day_begin(&self) -> NaiveTime {
         self.session.day_begin().clone()
     }
 
+    ///该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
     pub fn day_end(&self) -> NaiveTime {
         self.session.day_end().clone()
     }
 
-    // #[pyo3(signature = (ts, include_begin, include_end=false))]
+    /// 该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
+    pub fn morning_begin(&self) -> NaiveTime {
+        self.session.morning_begin().clone()
+    }
+
+    /// 是否有夜盘交易
+    pub fn has_nigth(&self) -> bool {
+        self.session.has_nigth()
+    }
+
+    #[pyo3(signature = (ts, include_begin, include_end=false))]
     pub fn in_session(&self, ts: NaiveTime, include_begin: bool, include_end: bool) -> bool {
         self.session.in_session(&ts, include_begin, include_end)
     }
@@ -104,6 +116,10 @@ impl TradeSession {
 
     pub fn post_fix(&mut self) {
         self.session.post_fix();
+    }
+    #[pyo3(name = "__str__")]
+    pub fn to_string(&self) -> String {
+        format!("{}", self.session)
     }
 }
 
@@ -160,17 +176,24 @@ impl SessionMgr {
         self.mgr
             .day_begin(product)
             .map(|tm| *tm)
-            .ok_or_else(|| to_pyerr(anyhow!("Day begin for product '{}' not found", product)))
+            .ok_or_else(|| to_pyerr(anyhow!("day begin for product '{}' not found", product)))
     }
     /// 获取失败时会爆出异常
     pub fn day_end(&self, product: &str) -> PyResult<NaiveTime> {
         self.mgr
             .day_end(product)
             .map(|tm| *tm)
-            .ok_or_else(|| to_pyerr(anyhow!("Day end for product '{}' not found", product)))
+            .ok_or_else(|| to_pyerr(anyhow!("day end for product '{}' not found", product)))
     }
     /// 获取失败时会爆出异常
-    // #[pyo3(signature = (product, ts, include_begin, include_end=false))]
+    pub fn morning_begin(&self, product: &str) -> PyResult<NaiveTime> {
+        self.mgr
+            .morning_begin(product)
+            .map(|tm| *tm)
+            .ok_or_else(|| to_pyerr(anyhow!("morning_begin for product '{}' not found", product)))
+    }
+    /// 获取失败时会爆出异常
+    #[pyo3(signature = (product, ts, include_begin, include_end=false))]
     pub fn in_session(
         &self,
         product: &str,
@@ -197,8 +220,17 @@ impl SessionMgr {
             .any_in_session(product, &start, &end, include_begin_end);
         opt.ok_or_else(|| to_pyerr(anyhow!("Session for product '{}' not found", product)))
     }
+    #[getter]
     pub fn sessions_count(&self) -> usize {
         self.mgr.session_map().len()
+    }
+    pub fn session_map(&self) -> PyResult<HashMap<String, TradeSession>> {
+        Ok(self
+            .mgr
+            .session_map()
+            .iter()
+            .map(|(k, v)| (k.clone(), TradeSession { session: v.clone() }))
+            .collect())
     }
 }
 

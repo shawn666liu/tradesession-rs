@@ -68,9 +68,14 @@ impl SessionPP {
     pub fn day_begin(&self) -> i64 {
         time_to_midnight_nanos(self.session.day_begin())
     }
-
     pub fn day_end(&self) -> i64 {
         time_to_midnight_nanos(self.session.day_end())
+    }
+    pub fn morning_begin(&self) -> i64 {
+        time_to_midnight_nanos(self.session.morning_begin())
+    }
+    pub fn has_nigth(&self) -> bool {
+        self.session.has_nigth()
     }
 
     pub fn in_session(
@@ -184,6 +189,13 @@ impl SessionMgr {
     pub fn sessions_count(&self) -> usize {
         self.mgr.session_map().len()
     }
+    pub fn session_map_keys(&self) -> Vec<String> {
+        self.mgr
+            .session_map()
+            .iter()
+            .map(|(k, _)| k.clone())
+            .collect()
+    }
 }
 
 #[cxx::bridge(namespace = "sessionpp")]
@@ -207,8 +219,18 @@ mod ffi {
 
         //////////////////////////////////////////////////////////////////////
 
+        /// 该品种日线开始时间，9:00/9:15/9:30/21:00, 一般是集合竞价所在的时间
         fn day_begin(self: &SessionPP) -> i64;
+        ///该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
         fn day_end(self: &SessionPP) -> i64;
+        /// 该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
+        fn morning_begin(self: &SessionPP) -> i64;
+        /// 是否有夜盘交易
+        pub fn has_nigth(self: &SessionPP) -> bool;
+        /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
+        /// 注意：所有数值超前4小时
+        /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
+        /// 应用场景2：比如仅交易了5个品种，要检查这些品种开市时间段有行情，用以求这些Session的并集
         fn minutes_list(self: &SessionPP) -> Vec<u32>;
         fn to_string(self: &SessionPP) -> String;
         /// 某个时间点落在session中吗?
@@ -269,5 +291,7 @@ mod ffi {
             include_begin_end: bool,
         ) -> Result<bool>;
         fn sessions_count(self: &SessionMgr) -> usize;
+        /// cxx crate 目前不支持返回字典，所以只返回keys
+        fn session_map_keys(self: &SessionMgr) -> Vec<String>;
     }
 }

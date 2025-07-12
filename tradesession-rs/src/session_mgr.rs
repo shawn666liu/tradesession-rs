@@ -46,6 +46,9 @@ pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>>
 /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
 pub fn load_from_csv<P: AsRef<Path>>(csv_file_path: P) -> Result<HashMap<String, TradeSession>> {
     let path = csv_file_path.as_ref();
+    if !path.exists() {
+        return Err(anyhow!("file not found `{}`", path.to_string_lossy()));
+    }
     let file = File::open(path).with_context(|| path.display().to_string())?;
     return load_from_read(DecodeReaderBytes::new(file));
 }
@@ -159,6 +162,9 @@ impl SessionManager {
     ///该品种日线结束时间，商品15:00，股指曾经15:15，股指现在15:00
     pub fn day_end(&self, product: &str) -> Option<&MyTimeType> {
         self.sessions.get(product).map(|s| s.day_end())
+    }
+    pub fn morning_begin(&self, product: &str) -> Option<&MyTimeType> {
+        self.sessions.get(product).map(|s| s.morning_begin())
     }
 
     /// 一个时间点, 在时段内吗? 一般应含开始(include_begin?), 是否含结束(include_end?)

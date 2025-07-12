@@ -16,5 +16,6 @@ chrono = "^0.4"
 tradesession = { version = "*", path = "../tradesession-rs", default-features = false, features = [
     "with-chrono",
 ] }
-pyo3 = { version = "0.25.1", features = ["extension-module", "chrono"] }
+# pyo3的版本受到pyo3-stub-gen的限制
+pyo3 = { version = "0.25.1", features = ["macros", "chrono"] }
 pyo3-stub-gen = { version = "0.10.0" }
