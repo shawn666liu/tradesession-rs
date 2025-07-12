@@ -137,23 +137,23 @@ pub struct SessionSlice {
 
 impl SessionSlice {
     /// 用Time构造, begin必须小于end(除非开始时间大于20点且结束时间跨零点)
-    pub fn new(begin: &MyTimeType, end: &MyTimeType) -> Self {
+    pub fn new(begin: &MyTimeType, end: &MyTimeType) -> Result<Self> {
         Self::new_from_shifted(ShiftedTime::from(begin), ShiftedTime::from(end))
     }
 
     /// 注意： 输入数据必须已经加过4小时了, begin必须小于end
-    pub fn new_from_shifted(begin_sec: ShiftedTime, end_sec: ShiftedTime) -> Self {
-        assert!(begin_sec < end_sec, "begin must less than end");
+    pub fn new_from_shifted(begin_sec: ShiftedTime, end_sec: ShiftedTime) -> Result<Self> {
         if begin_sec >= end_sec {
-            panic!(
-                "begin must less than end, but got begin: {}, end: {}",
-                begin_sec, end_sec
-            );
+            return Err(anyhow!(
+                "SessionSlice: begin must less than end, but got begin: {}, end: {}",
+                begin_sec,
+                end_sec
+            ));
         }
-        Self {
+        Ok(Self {
             begin: begin_sec,
             end: end_sec,
-        }
+        })
     }
 
     /// 原始时间，尚未增加4小时, start时间必须小于end(除非开始时间大于20点且结束时间跨零点)
@@ -162,7 +162,7 @@ impl SessionSlice {
         start_minute: u32,
         end_hour: u32,
         end_minute: u32,
-    ) -> Self {
+    ) -> Result<Self> {
         let begin_sec = ShiftedTime::new_from_time(start_hour, start_minute);
         let end_sec = ShiftedTime::new_from_time(end_hour, end_minute);
         Self::new_from_shifted(begin_sec, end_sec)
@@ -273,8 +273,8 @@ impl TradeSession {
     /// 生成一个股票的交易时段
     pub fn new_stock_session() -> Self {
         let mut ss = TradeSession::new();
-        ss.add_slice(9, 30, 11, 30);
-        ss.add_slice(13, 0, 15, 0);
+        ss.add_slice(9, 30, 11, 30).expect("no fail");
+        ss.add_slice(13, 0, 15, 0).expect("no fail");
         ss.post_fix();
         ss
     }
@@ -282,8 +282,8 @@ impl TradeSession {
     /// 生成一个股指期货的交易时段
     pub fn new_stock_index_session() -> Self {
         let mut ss = TradeSession::new();
-        ss.add_slice(9, 15, 11, 30);
-        ss.add_slice(13, 0, 15, 0);
+        ss.add_slice(9, 15, 11, 30).expect("no fail");
+        ss.add_slice(13, 0, 15, 0).expect("no fail");
         ss.post_fix();
         ss
     }
@@ -291,10 +291,10 @@ impl TradeSession {
     /// 生成一个常规的商品期货交易时段(无夜盘)
     pub fn new_commodity_session() -> Self {
         let mut ss = TradeSession::new();
-        ss.add_slice(9, 0, 10, 15)
-            .add_slice(10, 30, 11, 30)
-            .add_slice(13, 30, 15, 0)
-            .post_fix();
+        ss.add_slice(9, 0, 10, 15).expect("no fail");
+        ss.add_slice(10, 30, 11, 30).expect("no fail");
+        ss.add_slice(13, 30, 15, 0).expect("no fail");
+        ss.post_fix();
         ss
     }
 
@@ -302,10 +302,10 @@ impl TradeSession {
     pub fn new_commodity_session_night() -> Self {
         let mut ss = TradeSession::new();
         // 添加夜盘 21:00 ~ 2:30
-        ss.add_slice(21, 0, 2, 30);
-        ss.add_slice(9, 0, 10, 15);
-        ss.add_slice(10, 30, 11, 30);
-        ss.add_slice(13, 30, 15, 0);
+        ss.add_slice(21, 0, 2, 30).expect("no fail");
+        ss.add_slice(9, 0, 10, 15).expect("no fail");
+        ss.add_slice(10, 30, 11, 30).expect("no fail");
+        ss.add_slice(13, 30, 15, 0).expect("no fail");
         ss.post_fix();
         ss
     }
@@ -313,9 +313,9 @@ impl TradeSession {
     /// 生成一个涵盖商品股指国债股票等的全部交易时段(含夜盘)
     pub fn new_full_session() -> Self {
         let mut ss = TradeSession::new();
-        ss.add_slice(21, 0, 2, 30);
-        ss.add_slice(9, 0, 11, 30);
-        ss.add_slice(13, 30, 15, 0);
+        ss.add_slice(21, 0, 2, 30).expect("no fail");
+        ss.add_slice(9, 0, 11, 30).expect("no fail");
+        ss.add_slice(13, 30, 15, 0).expect("no fail");
         ss.post_fix();
         ss
     }
@@ -393,14 +393,14 @@ impl TradeSession {
         start_minute: u32,
         end_hour: u32,
         end_minute: u32,
-    ) -> &mut Self {
+    ) -> Result<()> {
         self.slices.push(SessionSlice::new_from_time(
             start_hour,
             start_minute,
             end_hour,
             end_minute,
-        ));
-        self
+        )?);
+        Ok(())
     }
 
     /// 这里假定slice已经处理过了，是正确的
@@ -523,7 +523,7 @@ pub fn parse_json_slices(json: &str) -> Result<Vec<SessionSlice>> {
                     (Value::String(bb), Value::String(ee)) => {
                         let begin = parse_time(bb, "%H:%M:%S")?;
                         let end = parse_time(ee, "%H:%M:%S")?;
-                        res.push(SessionSlice::new(&begin, &end));
+                        res.push(SessionSlice::new(&begin, &end)?);
                     }
                     _ => return Err(anyhow!("trade session解析错误: {}", elem)),
                 }
@@ -541,8 +541,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn slice_to_minutes() {
-        let slice = SessionSlice::new_from_time(9, 0, 9, 5);
+    fn slice_to_minutes() -> anyhow::Result<()> {
+        let slice = SessionSlice::new_from_time(9, 0, 9, 5)?;
         let mut minutes = slice.minutes_list();
         println!("slice minutes: {:?}", minutes);
         assert_eq!(minutes.len(), 5);
@@ -565,10 +565,11 @@ mod tests {
         for slice in &session.slices {
             println!("{}", slice);
         }
+        Ok(())
     }
 
     #[test]
-    fn _trade_session() {
+    fn _trade_session() -> anyhow::Result<()> {
         let stk = TradeSession::new_commodity_session_night();
         assert_eq!(stk.slices.len(), 4);
         for slice in &stk.slices {
@@ -583,13 +584,14 @@ mod tests {
         //assert!(stk.in_session(&make_time(15, 14, 59), true, false));
         // assert!(!stk.in_session(&make_time(15, 15, 0), true, false));
 
-        let slice = SessionSlice::new_from_time(21, 0, 2, 30);
+        let slice = SessionSlice::new_from_time(21, 0, 2, 30)?;
         assert!(slice.is_night());
         assert_eq!(slice.begin(), ShiftedTime::from(make_time(21, 0, 0)));
         assert_eq!(slice.end(), ShiftedTime::from(make_time(2, 30, 0)));
 
-        let slice = SessionSlice::new_from_time(9, 0, 10, 15);
+        let slice = SessionSlice::new_from_time(9, 0, 10, 15)?;
         assert!(!slice.is_night());
+        Ok(())
     }
 
     #[test]

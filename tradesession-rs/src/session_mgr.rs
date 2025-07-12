@@ -40,7 +40,8 @@ pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>>
 }
 
 /// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
-/// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
+/// 注意sessions列,(json里面有逗号,需要多重双引号)
+/// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
 /// 如果csv文件只有两列, 则第一列为产品名, 第二列为json字符串
 /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
 pub fn load_from_csv<P: AsRef<Path>>(csv_file_path: P) -> Result<HashMap<String, TradeSession>> {

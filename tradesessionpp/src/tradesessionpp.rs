@@ -13,6 +13,11 @@ pub struct SessionMgr {
 }
 
 pub fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP> {
+    if minutes.is_empty() {
+        return Box::new(SessionPP {
+            session: TradeSession::new(),
+        });
+    }
     let minutes: BTreeSet<u32> = minutes.iter().map(|&m| m).collect();
     let session = TradeSession::new_from_minutes(&minutes);
     Box::new(SessionPP { session })
@@ -91,6 +96,22 @@ impl SessionPP {
     pub fn minutes_list(&self) -> Vec<u32> {
         self.session.minutes_list().iter().map(|tm| *tm).collect()
     }
+    pub fn to_string(&self) -> String {
+        format!("{}", self.session)
+    }
+    pub fn add_slice(
+        &mut self,
+        start_hour: u32,
+        start_minute: u32,
+        end_hour: u32,
+        end_minute: u32,
+    ) -> Result<()> {
+        self.session
+            .add_slice(start_hour, start_minute, end_hour, end_minute)
+    }
+    pub fn post_fix(&mut self) {
+        self.session.post_fix();
+    }
 }
 
 impl SessionMgr {
@@ -160,13 +181,18 @@ impl SessionMgr {
             None => Err(anyhow!("Session check for product '{}' not found", product)),
         }
     }
+    pub fn sessions_count(&self) -> usize {
+        self.mgr.session_map().len()
+    }
 }
 
-#[cxx::bridge(namespace = "tradesessionpp")]
+#[cxx::bridge(namespace = "sessionpp")]
 mod ffi {
     extern "Rust" {
         type SessionPP;
         type SessionMgr;
+
+        /// c++, new_session({})创建空session
         fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP>;
         fn new_mgr() -> Box<SessionMgr>;
         /// 创建失败时会爆出异常
@@ -179,15 +205,12 @@ mod ffi {
         fn new_stock_index_session() -> Box<SessionPP>;
         fn new_full_session() -> Box<SessionPP>;
 
-        /// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
-        /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
-        /// 如果csv文件只有两列, 则第一列为产品名, 第二列为json字符串
-        /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
-        fn reload_csv_content(self: &mut SessionMgr, csv_content: &str, merge: bool) -> Result<()>;
-        /// ag,SHFE,[{"Begin":"09:00:00","End":"10:15:00"},{"Begin":"10:30:00","End":"11:30:00"},{"Begin":"13:30:00","End":"15:00:00"},{"Begin":"21:00:00","End":"02:30:00"}]
-        fn reload_csv_file(self: &mut SessionMgr, csv_file_path: &str, merge: bool) -> Result<()>;
+        //////////////////////////////////////////////////////////////////////
+
         fn day_begin(self: &SessionPP) -> i64;
         fn day_end(self: &SessionPP) -> i64;
+        fn minutes_list(self: &SessionPP) -> Vec<u32>;
+        fn to_string(self: &SessionPP) -> String;
         /// 某个时间点落在session中吗?
         fn in_session(
             self: &SessionPP,
@@ -202,7 +225,26 @@ mod ffi {
             nanos_since_midnight_end: i64,
             include_begin_end: bool,
         ) -> bool;
+        fn add_slice(
+            self: &mut SessionPP,
+            start_hour: u32,
+            start_minute: u32,
+            end_hour: u32,
+            end_minute: u32,
+        ) -> Result<()>;
+        fn post_fix(self: &mut SessionPP);
 
+        /////////////////////////////////////////////////////
+
+        /// csv文件是直接从数据库表导出的,一共三列, product,exchange,sessions
+        /// 注意sessions列,(json里面有逗号,需要多重双引号)
+        /// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
+        /// 如果csv文件只有两列, 则第一列为产品名, 第二列为json字符串
+        /// 如果csv文件有三列, 则第一列为产品名, 第二列为交易所名, 第三列为json字符串
+        fn reload_csv_content(self: &mut SessionMgr, csv_content: &str, merge: bool) -> Result<()>;
+        /// 注意sessions列,(json里面有逗号,需要多重双引号)
+        /// ag,SHFE,"[{""Begin"":""09:00:00"",""End"":""10:15:00""},{""Begin"":""10:30:00"",""End"":""11:30:00""},{""Begin"":""13:30:00"",""End"":""15:00:00""},{""Begin"":""21:00:00"",""End"":""02:30:00""}]"
+        fn reload_csv_file(self: &mut SessionMgr, csv_file_path: &str, merge: bool) -> Result<()>;
         fn has_session(self: &SessionMgr, product: &str) -> bool;
         /// 获取失败时会爆出异常
         fn get_session(self: &SessionMgr, product: &str) -> Result<Box<SessionPP>>;
@@ -226,5 +268,6 @@ mod ffi {
             nanos_since_midnight_end: i64,
             include_begin_end: bool,
         ) -> Result<bool>;
+        fn sessions_count(self: &SessionMgr) -> usize;
     }
 }
