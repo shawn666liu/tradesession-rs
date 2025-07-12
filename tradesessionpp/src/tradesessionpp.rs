@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use cxx::CxxVector;
 use std::collections::BTreeSet;
 use tradesession::{SessionManager, TradeSession};
 
@@ -12,7 +11,14 @@ pub struct SessionMgr {
     mgr: SessionManager,
 }
 
-pub fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP> {
+pub fn new_session() -> Box<SessionPP> {
+    Box::new(SessionPP {
+        session: TradeSession::new(),
+    })
+}
+
+pub fn new_from_minutes(minutes: &Vec<u32>) -> Box<SessionPP> {
+    print!("I am here, hahaha");
     if minutes.is_empty() {
         return Box::new(SessionPP {
             session: TradeSession::new(),
@@ -204,8 +210,9 @@ mod ffi {
         type SessionPP;
         type SessionMgr;
 
-        /// c++, new_session({})创建空session
-        fn new_session(minutes: &CxxVector<u32>) -> Box<SessionPP>;
+        /// c++, new_session(),创建空session
+        fn new_session() -> Box<SessionPP>;
+        fn new_from_minutes(minutes: &Vec<u32>) -> Box<SessionPP>;
         fn new_mgr() -> Box<SessionMgr>;
         /// 创建失败时会爆出异常
         fn new_from_csv(csv_file_path: &str) -> Result<Box<SessionMgr>>;
