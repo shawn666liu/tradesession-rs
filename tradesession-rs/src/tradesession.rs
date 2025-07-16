@@ -41,13 +41,14 @@ impl ShiftedTime {
         self.0
     }
 
-    /// 原始时间对应的秒数
-    pub fn origin_seconds(&self) -> u32 {
+    /// 名义时间对应的秒数
+    pub fn nominal_seconds(&self) -> u32 {
         (self.0 + SECS_IN_ONE_DAY - SECS_IN_FOUR_HOURS) % SECS_IN_ONE_DAY
     }
 
-    pub fn origin_time(&self) -> MyTimeType {
-        let secs = self.origin_seconds();
+    /// 名义时间
+    pub fn nominal_time(&self) -> MyTimeType {
+        let secs = self.nominal_seconds();
         let h = secs / (60 * 60);
         let m = secs % (60 * 60) / 60;
         let s = secs % 60;
@@ -79,7 +80,7 @@ impl Display for ShiftedTime {
             write!(
                 f,
                 "{}, sec {}, {}",
-                self.origin_time().format("%R"),
+                self.nominal_time().format("%R"),
                 self.0,
                 self.shifted_time().format("%R")
             )
@@ -115,13 +116,13 @@ impl From<MyTimeType> for ShiftedTime {
 
 impl Into<MyTimeType> for ShiftedTime {
     fn into(self) -> MyTimeType {
-        self.origin_time()
+        self.nominal_time()
     }
 }
 
 impl Into<MyTimeType> for &ShiftedTime {
     fn into(self) -> MyTimeType {
-        self.origin_time()
+        self.nominal_time()
     }
 }
 
@@ -213,8 +214,8 @@ impl Display for SessionSlice {
                 "raw({}~{}), act({}~{})",
                 self.begin.shifted_time().format("%R"),
                 self.end.shifted_time().format("%R"),
-                self.begin.origin_time().format("%R"),
-                self.end.origin_time().format("%R"),
+                self.begin.nominal_time().format("%R"),
+                self.end.nominal_time().format("%R"),
             )
         }
         #[cfg(feature = "with-jiff")]
