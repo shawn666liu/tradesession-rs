@@ -118,17 +118,19 @@ pub fn datetime_to_timestamp_nanos(datetime: &MyDateTimeType) -> i64 {
     nanos
 }
 
-/// 从00:00:00开始的纳秒数创建时间
+/// 从00:00:00开始的纳秒数创建时间, 不能等于大于24点, 24点就是0点，内部取模
 #[allow(non_snake_case)]
 pub fn time_from_midnight_nanos(time_nanos: i64) -> MyTimeType {
     // function is pub(crate)
     // Time::from_nanosecond(time_nanos)
 
+    // 取模，否则hour=24而不是0
+    let nanosecond = time_nanos % 86400000000000;
+
     let NANOS_PER_SECOND = 1_000_000_000;
     let NANOS_PER_MINUTE = 60 * 1_000_000_000;
     let NANOS_PER_HOUR = 60 * 60 * 1_000_000_000;
 
-    let nanosecond = time_nanos;
     let hour = nanosecond / NANOS_PER_HOUR;
     let minute = (nanosecond % NANOS_PER_HOUR) / NANOS_PER_MINUTE;
     let second = (nanosecond % NANOS_PER_MINUTE) / NANOS_PER_SECOND;
@@ -171,4 +173,3 @@ pub fn parse_date(date_str: &str, fmt: &str) -> Result<MyDateType> {
 pub fn parse_datetime(datetime_str: &str, fmt: &str) -> Result<MyDateTimeType> {
     Ok(DateTime::strptime(fmt, datetime_str)?)
 }
-

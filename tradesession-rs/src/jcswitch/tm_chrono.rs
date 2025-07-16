@@ -63,8 +63,9 @@ pub fn datetime_to_timestamp_nanos(datetime: &MyDateTimeType) -> i64 {
         .expect("timestamp_nanos_opt() failed")
 }
 
-/// 从00:00:00开始的纳秒数创建时间
+/// 从00:00:00开始的纳秒数创建时间, 不能等于大于24点, 24点就是0点，内部取模
 pub fn time_from_midnight_nanos(time_nanos: i64) -> MyTimeType {
+    let time_nanos = time_nanos % 86400000000000;
     let secs = (time_nanos / 1_000_000_000) as u32;
     let nano = (time_nanos % 1_000_000_000) as u32;
     NaiveTime::from_num_seconds_from_midnight_opt(secs, nano)

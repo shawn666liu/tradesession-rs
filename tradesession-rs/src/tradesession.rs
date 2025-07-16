@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json::Value;
 use std::{collections::BTreeSet, fmt::Display};
 
@@ -621,5 +621,16 @@ mod tests {
         // let session = TradeSession::new(slice_vec);
 
         Ok(())
+    }
+    #[test]
+    fn fix_fail() {
+        let nanos_since_midnight_start = 82800000000000;
+        let start = time_from_midnight_nanos(nanos_since_midnight_start);
+
+        // 这个86400秒本来会失败，因为达到或超过24小时了，应该是零点而不是24点
+        // 所以time_from_midnight_nanos()内部进行了取模，这样就不会失败了
+        let nanos_since_midnight_end = 86400000000000;
+        let end = time_from_midnight_nanos(nanos_since_midnight_end);
+        println!("start {}, end {}", start, end);
     }
 }
