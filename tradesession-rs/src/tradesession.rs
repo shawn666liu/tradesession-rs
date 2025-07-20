@@ -195,11 +195,11 @@ impl SessionSlice {
         self.begin.seconds() == 3600
     }
 
-    /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
-    /// 注意：所有数值超前4小时
-    pub fn minutes_list(&self) -> BTreeSet<u32> {
-        let start_minute = self.begin.seconds() / 60;
-        let end_minute = self.end.seconds() / 60;
+    /// 获取此时间片对应分钟(最大不超过1440,u16足够)的数组，
+    /// 含开始，不含结束， 注意：所有数值超前4小时
+    pub fn minutes_list(&self) -> BTreeSet<u16> {
+        let start_minute = (self.begin.seconds() / 60) as u16;
+        let end_minute = (self.end.seconds() / 60) as u16;
         // 注意：end_minute不包含在内
         (start_minute..end_minute).collect()
     }
@@ -262,7 +262,7 @@ impl TradeSession {
         session
     }
 
-    pub fn new_from_minutes(minutes: &BTreeSet<u32>) -> Self {
+    pub fn new_from_minutes(minutes: &BTreeSet<u16>) -> Self {
         let mut session = TradeSession::new();
         session.load_from_minutes(minutes);
         session
@@ -439,18 +439,18 @@ impl TradeSession {
     /// 注意：所有数值超前4小时
     /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
     /// 应用场景2：比如仅交易了5个品种，要检查这些品种开市时间段有行情，用以求这些Session的并集
-    pub fn minutes_list(&self) -> BTreeSet<u32> {
+    pub fn minutes_list(&self) -> BTreeSet<u16> {
         self.slices
             .iter()
             .flat_map(|slice| slice.minutes_list())
             .collect()
     }
-    pub fn load_from_minutes(&mut self, minutes: &BTreeSet<u32>) {
+    pub fn load_from_minutes(&mut self, minutes: &BTreeSet<u16>) {
         self.internal_load_minutes(minutes);
         self.fix_day_begin_end();
     }
 
-    fn internal_load_minutes(&mut self, minutes: &BTreeSet<u32>) {
+    fn internal_load_minutes(&mut self, minutes: &BTreeSet<u16>) {
         self.slices.clear();
         if minutes.is_empty() {
             return;
@@ -471,8 +471,8 @@ impl TradeSession {
                 (Some(start), Some(prev)) => {
                     // 中间不连续时，slice结束
                     self.slices.push(SessionSlice {
-                        begin: ShiftedTime(start * 60),
-                        end: ShiftedTime(prev * 60 + 60),
+                        begin: ShiftedTime(start as u32 * 60),
+                        end: ShiftedTime(prev as u32 * 60 + 60),
                     });
                     current_start = Some(minute);
                     prev_minute = Some(minute);
@@ -487,8 +487,8 @@ impl TradeSession {
         // 添加最后一个块（此时 current_start 和 prev_minute 必然都有值）
         if let (Some(start), Some(end)) = (current_start, prev_minute) {
             self.slices.push(SessionSlice {
-                begin: ShiftedTime(start * 60),
-                end: ShiftedTime(end * 60 + 60),
+                begin: ShiftedTime(start as u32 * 60),
+                end: ShiftedTime(end as u32 * 60 + 60),
             });
         }
     }

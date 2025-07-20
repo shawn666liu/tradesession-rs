@@ -54,12 +54,12 @@ impl TradeSession {
     }
 
     #[new]
-    pub fn new(minutes: Vec<u32>) -> PyResult<Self> {
+    pub fn new(minutes: Vec<u16>) -> PyResult<Self> {
         if minutes.is_empty() {
             let session = tradesession::TradeSession::new();
             return Ok(Self { session });
         }
-        let minutes: BTreeSet<u32> = minutes.into_iter().collect();
+        let minutes: BTreeSet<u16> = minutes.into_iter().collect();
         let session = tradesession::TradeSession::new_from_minutes(&minutes);
         Ok(Self { session })
     }
@@ -98,7 +98,7 @@ impl TradeSession {
         self.session.any_in_session(&start, &end, include_begin_end)
     }
 
-    pub fn minutes_list(&self) -> Vec<u32> {
+    pub fn minutes_list(&self) -> Vec<u16> {
         self.session.minutes_list().iter().cloned().collect()
     }
 

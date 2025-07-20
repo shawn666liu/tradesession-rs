@@ -17,14 +17,14 @@ pub fn new_session() -> Box<SessionPP> {
     })
 }
 
-pub fn new_from_minutes(minutes: &Vec<u32>) -> Box<SessionPP> {
+pub fn new_from_minutes(minutes: &Vec<u16>) -> Box<SessionPP> {
     print!("I am here, hahaha");
     if minutes.is_empty() {
         return Box::new(SessionPP {
             session: TradeSession::new(),
         });
     }
-    let minutes: BTreeSet<u32> = minutes.iter().map(|&m| m).collect();
+    let minutes: BTreeSet<u16> = minutes.iter().map(|&m| m).collect();
     let session = TradeSession::new_from_minutes(&minutes);
     Box::new(SessionPP { session })
 }
@@ -104,7 +104,7 @@ impl SessionPP {
         let end = time_from_midnight_nanos(nanos_since_midnight_end);
         self.session.any_in_session(&start, &end, include_begin_end)
     }
-    pub fn minutes_list(&self) -> Vec<u32> {
+    pub fn minutes_list(&self) -> Vec<u16> {
         self.session.minutes_list().iter().map(|tm| *tm).collect()
     }
     pub fn to_string(&self) -> String {
@@ -212,7 +212,7 @@ mod ffi {
 
         /// c++, new_session(),创建空session
         fn new_session() -> Box<SessionPP>;
-        fn new_from_minutes(minutes: &Vec<u32>) -> Box<SessionPP>;
+        fn new_from_minutes(minutes: &Vec<u16>) -> Box<SessionPP>;
         fn new_mgr() -> Box<SessionMgr>;
         /// 创建失败时会爆出异常
         fn new_from_csv(csv_file_path: &str) -> Result<Box<SessionMgr>>;
@@ -238,7 +238,7 @@ mod ffi {
         /// 注意：所有数值超前4小时
         /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
         /// 应用场景2：比如仅交易了5个品种，要检查这些品种开市时间段有行情，用以求这些Session的并集
-        fn minutes_list(self: &SessionPP) -> Vec<u32>;
+        fn minutes_list(self: &SessionPP) -> Vec<u16>;
         fn to_string(self: &SessionPP) -> String;
         /// 某个时间点落在session中吗?
         fn in_session(

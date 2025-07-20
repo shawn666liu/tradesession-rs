@@ -69,6 +69,3 @@ docs/_build/
 
 # Pyenv
 .python-version
-
-/output
-/tradecalendar-rs/target
