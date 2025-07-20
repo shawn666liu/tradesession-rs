@@ -255,14 +255,18 @@ impl TradeSession {
             morning_begin,
         }
     }
-    pub fn new_from_slices(slices: Vec<SessionSlice>) -> Self {
+    pub fn new_from_slices(slices: &Vec<SessionSlice>) -> Self {
         let mut session = Self::new();
         session.slices.extend(slices);
         session.post_fix();
         session
     }
 
-    pub fn new_from_minutes(minutes: &BTreeSet<u16>) -> Self {
+    pub fn new_from_minutes<I, T>(minutes: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<u16> + Copy,
+    {
         let mut session = TradeSession::new();
         session.load_from_minutes(minutes);
         session
@@ -432,7 +436,8 @@ impl TradeSession {
             return;
         }
         let minutes = self.minutes_list();
-        self.load_from_minutes(&minutes);
+        self.internal_load_minutes(&minutes);
+        self.fix_day_begin_end();
     }
 
     /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
@@ -445,8 +450,13 @@ impl TradeSession {
             .flat_map(|slice| slice.minutes_list())
             .collect()
     }
-    pub fn load_from_minutes(&mut self, minutes: &BTreeSet<u16>) {
-        self.internal_load_minutes(minutes);
+    pub fn load_from_minutes<I, T>(&mut self, minutes: I)
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<u16> + Copy,
+    {
+        let minutes: BTreeSet<u16> = minutes.into_iter().map(|t| t.into()).collect();
+        self.internal_load_minutes(&minutes);
         self.fix_day_begin_end();
     }
 
@@ -569,7 +579,7 @@ mod tests {
         minutes.insert(840); // 10:00 is 780 + 60 minutes
         minutes.insert(841); // 10:01 is 781 + 60 minutes
 
-        let session = TradeSession::new_from_minutes(&minutes);
+        let session = TradeSession::new_from_minutes(minutes.clone());
         let minutes2 = session.minutes_list();
         println!("slice minutes2: {:?}", minutes2);
 

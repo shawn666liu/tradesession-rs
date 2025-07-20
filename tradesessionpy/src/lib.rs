@@ -4,7 +4,7 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use tradesession;
 
@@ -55,12 +55,7 @@ impl TradeSession {
 
     #[new]
     pub fn new(minutes: Vec<u16>) -> PyResult<Self> {
-        if minutes.is_empty() {
-            let session = tradesession::TradeSession::new();
-            return Ok(Self { session });
-        }
-        let minutes: BTreeSet<u16> = minutes.into_iter().collect();
-        let session = tradesession::TradeSession::new_from_minutes(&minutes);
+        let session = tradesession::TradeSession::new_from_minutes(minutes);
         Ok(Self { session })
     }
 

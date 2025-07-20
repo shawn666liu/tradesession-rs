@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use std::collections::BTreeSet;
 use tradesession::{SessionManager, TradeSession};
 
 use tradesession::jcswitch::{time_from_midnight_nanos, time_to_midnight_nanos};
@@ -17,15 +16,8 @@ pub fn new_session() -> Box<SessionPP> {
     })
 }
 
-pub fn new_from_minutes(minutes: &Vec<u16>) -> Box<SessionPP> {
-    print!("I am here, hahaha");
-    if minutes.is_empty() {
-        return Box::new(SessionPP {
-            session: TradeSession::new(),
-        });
-    }
-    let minutes: BTreeSet<u16> = minutes.iter().map(|&m| m).collect();
-    let session = TradeSession::new_from_minutes(&minutes);
+pub fn new_from_minutes(minutes: Vec<u16>) -> Box<SessionPP> {
+    let session = TradeSession::new_from_minutes(minutes);
     Box::new(SessionPP { session })
 }
 
@@ -212,7 +204,7 @@ mod ffi {
 
         /// c++, new_session(),创建空session
         fn new_session() -> Box<SessionPP>;
-        fn new_from_minutes(minutes: &Vec<u16>) -> Box<SessionPP>;
+        fn new_from_minutes(minutes: Vec<u16>) -> Box<SessionPP>;
         fn new_mgr() -> Box<SessionMgr>;
         /// 创建失败时会爆出异常
         fn new_from_csv(csv_file_path: &str) -> Result<Box<SessionMgr>>;

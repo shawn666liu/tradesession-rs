@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use encoding_rs_io::DecodeReaderBytes;
 use std::fs::File;
 use std::path::Path;
@@ -25,13 +25,13 @@ pub fn load_from_read<R: Read>(read: R) -> Result<HashMap<String, TradeSession>>
                     "bad format session: expected 2 or 3 fields, got {}, {:#?}",
                     record.len(),
                     record
-                ))
+                ));
             }
         };
 
         let json = &record[json_idx];
         let slices = parse_json_slices(json)?;
-        let session = TradeSession::new_from_slices(slices);
+        let session = TradeSession::new_from_slices(&slices);
 
         hash.insert(record[key_idx].to_string(), session);
     }
@@ -65,7 +65,7 @@ pub fn load_from_json_map(
     let mut res_map: HashMap<String, TradeSession> = HashMap::new();
     for (k, v) in prd_vs_json {
         let res_vec: Vec<SessionSlice> = parse_json_slices(v)?;
-        let session = TradeSession::new_from_slices(res_vec);
+        let session = TradeSession::new_from_slices(&res_vec);
         res_map.insert(k.to_string(), session);
     }
     Ok(res_map)
