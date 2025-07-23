@@ -57,6 +57,11 @@ pub fn new_stock_index_session() -> Box<SessionPP> {
     Box::new(SessionPP { session })
 }
 
+pub fn new_bond_session() -> Box<SessionPP> {
+    let session = TradeSession::new_bond_session();
+    Box::new(SessionPP { session })
+}
+
 pub fn new_full_session() -> Box<SessionPP> {
     let session = TradeSession::new_full_session();
     Box::new(SessionPP { session })
@@ -210,10 +215,15 @@ mod ffi {
         fn new_from_csv(csv_file_path: &str) -> Result<Box<SessionMgr>>;
         /// 创建失败时会爆出异常
         fn new_from_csv_content(csv_content: &str) -> Result<Box<SessionMgr>>;
+        /// 生成一个常规的商品期货（不含金融期货）交易时段(不含夜盘)
         fn new_commodity_session() -> Box<SessionPP>;
+        /// 生成一个常规的商品期货（不含金融期货）交易时段(含夜盘)
         fn new_commodity_session_night() -> Box<SessionPP>;
         fn new_stock_session() -> Box<SessionPP>;
         fn new_stock_index_session() -> Box<SessionPP>;
+        /// 生成一个国债期货的交易时段, 比金融期货多15分钟
+        fn new_bond_session() -> Box<SessionPP>;
+        /// 生成一个涵盖商品股指国债股票等的全部交易时段(含夜盘)
         fn new_full_session() -> Box<SessionPP>;
 
         //////////////////////////////////////////////////////////////////////

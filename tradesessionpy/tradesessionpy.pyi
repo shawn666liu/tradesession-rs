@@ -57,15 +57,29 @@ class SessionMgr:
 
 class TradeSession:
     @staticmethod
-    def new_commodity_session() -> TradeSession: ...
+    def new_commodity_session() -> TradeSession:
+        r"""
+        生成一个常规的商品期货（不含金融期货）交易时段(不含夜盘)
+        """
     @staticmethod
-    def new_commodity_session_night() -> TradeSession: ...
+    def new_commodity_session_night() -> TradeSession:
+        r"""
+        生成一个常规的商品期货（不含金融期货）交易时段(含夜盘)
+        """
     @staticmethod
     def new_stock_session() -> TradeSession: ...
     @staticmethod
     def new_stock_index_session() -> TradeSession: ...
     @staticmethod
-    def new_full_session() -> TradeSession: ...
+    def new_bond_session() -> TradeSession:
+        r"""
+        生成一个国债期货的交易时段, 比金融期货多15分钟
+        """
+    @staticmethod
+    def new_full_session() -> TradeSession:
+        r"""
+        生成一个涵盖商品股指国债股票等的全部交易时段(含夜盘)
+        """
     def __new__(cls, minutes:typing.Sequence[builtins.int]) -> TradeSession: ...
     def day_begin(self) -> datetime.time:
         r"""

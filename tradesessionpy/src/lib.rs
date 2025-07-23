@@ -27,11 +27,13 @@ pub struct SessionMgr {
 #[gen_stub_pymethods]
 #[pymethods]
 impl TradeSession {
+    /// 生成一个常规的商品期货（不含金融期货）交易时段(不含夜盘)
     #[staticmethod]
     pub fn new_commodity_session() -> Self {
         let session = tradesession::TradeSession::new_commodity_session();
         Self { session }
     }
+    /// 生成一个常规的商品期货（不含金融期货）交易时段(含夜盘)
     #[staticmethod]
     pub fn new_commodity_session_night() -> Self {
         let session = tradesession::TradeSession::new_commodity_session_night();
@@ -47,6 +49,13 @@ impl TradeSession {
         let session = tradesession::TradeSession::new_stock_index_session();
         Self { session }
     }
+    /// 生成一个国债期货的交易时段, 比金融期货多15分钟
+    #[staticmethod]
+    pub fn new_bond_session() -> Self {
+        let session = tradesession::TradeSession::new_bond_session();
+        Self { session }
+    }
+    /// 生成一个涵盖商品股指国债股票等的全部交易时段(含夜盘)
     #[staticmethod]
     pub fn new_full_session() -> Self {
         let session = tradesession::TradeSession::new_full_session();

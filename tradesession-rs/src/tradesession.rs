@@ -281,11 +281,16 @@ impl TradeSession {
         ss
     }
 
-    /// 生成一个股指期货的交易时段
+    /// 生成一个股指期货的交易时段, 现在股指期货跟股票一样
     pub fn new_stock_index_session() -> Self {
+        Self::new_stock_session()
+    }
+
+    /// 生成一个国债期货的交易时段, 比金融期货多15分钟
+    pub fn new_bond_session() -> Self {
         let mut ss = TradeSession::new();
-        ss.add_slice(9, 15, 11, 30).expect("no fail");
-        ss.add_slice(13, 0, 15, 0).expect("no fail");
+        ss.add_slice(9, 30, 11, 30).expect("no fail");
+        ss.add_slice(13, 0, 15, 15).expect("no fail");
         ss.post_fix();
         ss
     }
@@ -317,7 +322,7 @@ impl TradeSession {
         let mut ss = TradeSession::new();
         ss.add_slice(21, 0, 2, 30).expect("no fail");
         ss.add_slice(9, 0, 11, 30).expect("no fail");
-        ss.add_slice(13, 30, 15, 0).expect("no fail");
+        ss.add_slice(13, 0, 15, 15).expect("no fail");
         ss.post_fix();
         ss
     }

@@ -1,6 +1,6 @@
 [package]
 name = "tradesessionpp"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Shawn Liu <shawn666.liu@hotmail.com>"]
 description = "TradeSession,cpp封装"
