@@ -90,7 +90,7 @@ impl Display for ShiftedTime {
             write!(
                 f,
                 "{}, sec {}, {}",
-                self.origin_time().strftime("%H:%M"),
+                self.nominal_time().strftime("%H:%M"),
                 self.0,
                 self.shifted_time().strftime("%H:%M")
             )
@@ -98,11 +98,21 @@ impl Display for ShiftedTime {
     }
 }
 impl From<&MyTimeType> for ShiftedTime {
+    // 这里有一个严重的问题，使用2025-07-23 00:00:00和2025-07-23 00:00:00.500,
+    // 计算出来的ShiftedTime秒数是一样的，500ms的差异被弄丢了
+    // 但实际上，前者是上一个bar的结束，后者是新一个bar的开始
+    // 因为切分k线时，使用左开右闭区间(]，整点时间是属于前一个周期的，比如收盘时15:00:00,它属于上一个bar
+    // 比如商品期货，早上的第一个一分钟bar,
+    // 如果不含集合竞价，它是[9:00:00～9:01:00], 第二个(9:01:00~9:02:00]
+    // 如果包含集合竞价，它是[8:59:00～9:01:00], 第二个(9:01:00~9:02:00]
     fn from(t: &MyTimeType) -> Self {
-        let sec = t.hour() as u32 * 3600
+        let mut sec = t.hour() as u32 * 3600
             + t.minute() as u32 * 60
             + t.second() as u32
             + SECS_IN_FOUR_HOURS;
+        if t.nanosecond() > 0 {
+            sec += 1;
+        }
         let sec = sec % SECS_IN_ONE_DAY;
         Self(sec)
     }
@@ -225,8 +235,8 @@ impl Display for SessionSlice {
                 "raw({}~{}), act({}~{})",
                 self.begin.shifted_time().strftime("%H:%M"),
                 self.end.shifted_time().strftime("%H:%M"),
-                self.begin.origin_time().strftime("%H:%M"),
-                self.end.origin_time().strftime("%H:%M"),
+                self.begin.nominal_time().strftime("%H:%M"),
+                self.end.nominal_time().strftime("%H:%M"),
             )
         }
     }
