@@ -64,7 +64,7 @@ impl ShiftedTime {
     }
 
     /// 微调,慎用
-    pub fn adjust(&mut self, secs: i8) {
+    pub fn adjust(&mut self, secs: i32) {
         if secs > 0 {
             self.0 += secs as u32;
         } else {
