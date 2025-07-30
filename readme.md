@@ -31,3 +31,10 @@ maturin build --release
 maturin develop --release
 
 ### C++绑定
+- 编译release版本通过
+- 复制target/cxxbridge/{rust, tradesessionpp}及之下的所有.h和.cc文件  
+  包括cxx.h, ???.rs.h, ???.rs.cc  
+- 下载cxx.cc文件,   
+  https://raw.githubusercontent.com/dtolnay/cxx/refs/heads/master/src/cxx.cc
+- 复制target/release下面的tradesessionpp.{dll,lib}文件, linux下则为libtradesessionpp.so
+- c++封装文件: 在tradesessionpp/wrapper目录下，复制到c++项目
