@@ -14,9 +14,7 @@ crate-type = ["cdylib"]
 anyhow = "*"
 chrono = "^0.4"
 cxx = "*"
-tradesession = { version = "*", path = "../tradesession-rs", default-features = false, features = [
-    "with-chrono",
-] }
+tradesession = { version = "*", path = "../tradesession-rs" }
 
 [build-dependencies]
 cxx-build = "*"
