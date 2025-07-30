@@ -427,16 +427,17 @@ impl TradeSession {
             return;
         }
         // 早盘开始时间一般是9:00/9:15/9:30, 所以寻找开始时间在[9:00, 10:00)之间的第一个slice, 其开始时间是morning_begin
+        // 如果手动添加了其他时段，比如早上8点我们要连接CTP接口等，那么把开始时间放宽到6点到11点
 
         let first = self.slices.first().expect("no fail");
         let last = self.slices.last().expect("no fail");
         self.day_begin = first.begin.into();
         self.day_end = last.end.into();
 
-        // 9:00 shift后(9+4)*3600 = 46800, 10:00 shift后50400
+        // 6:00 shift后(6+4)*3600 = 36000, 11:00 shift后54000
         let morning = self.slices.iter().find(|slice| {
             let secs = slice.begin.seconds();
-            secs >= 46800 && secs < 50400
+            secs >= 36000 && secs < 54000
         });
         if let Some(slice) = morning {
             self.morning_begin = slice.begin.into();

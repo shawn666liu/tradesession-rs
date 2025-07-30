@@ -263,6 +263,7 @@ mod ffi {
             end_hour: u32,
             end_minute: u32,
         ) -> Result<()>;
+        /// 在所有Slice都加入之后，使用minutes方式重算，合并并移除重叠等，计算day_begin、day_end的值
         fn post_fix(self: &mut SessionPP);
 
         /////////////////////////////////////////////////////

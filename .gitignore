@@ -69,3 +69,6 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+# ignore some local temp files
+z___*

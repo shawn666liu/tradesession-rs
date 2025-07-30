@@ -118,6 +118,7 @@ impl TradeSession {
             .map_err(to_pyerr)
     }
 
+    /// 在所有Slice都加入之后，使用minutes方式重算，合并并移除重叠等，计算day_begin、day_end的值
     pub fn post_fix(&mut self) {
         self.session.post_fix();
     }
