@@ -141,6 +141,10 @@ impl SessionMgr {
             .ok_or_else(|| anyhow!("Session for product '{}' not found", product))
     }
 
+    pub fn add_session(&mut self, product: &str, session: Box<SessionPP>) {
+        self.mgr.add_session(product, session.session);
+    }
+
     pub fn day_begin(&self, product: &str) -> Result<i64> {
         self.mgr
             .day_begin(product)
@@ -280,6 +284,8 @@ mod ffi {
         fn has_session(self: &SessionMgr, product: &str) -> bool;
         /// 获取失败时会爆出异常
         fn get_session(self: &SessionMgr, product: &str) -> Result<Box<SessionPP>>;
+        /// 如果旧数据存在，会被替换
+        fn add_session(self: &mut SessionMgr, product: &str, session: Box<SessionPP>);
         /// 获取失败时会爆出异常
         fn day_begin(self: &SessionMgr, product: &str) -> Result<i64>;
         /// 获取失败时会爆出异常

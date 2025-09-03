@@ -176,6 +176,10 @@ impl SessionMgr {
             .map(|s| TradeSession { session: s.clone() })
             .ok_or_else(|| to_pyerr(anyhow!("Session for product '{}' not found", product)))
     }
+    /// 如果旧数据存在，会被替换
+    pub fn add_session(&mut self, product: &str, session: &TradeSession) {
+        self.mgr.add_session(product, session.session.clone());
+    }
     /// 获取失败时会爆出异常
     pub fn day_begin(&self, product: &str) -> PyResult<NaiveTime> {
         self.mgr

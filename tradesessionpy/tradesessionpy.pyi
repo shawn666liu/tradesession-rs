@@ -33,6 +33,10 @@ class SessionMgr:
         r"""
         获取失败时会爆出异常
         """
+    def add_session(self, product:builtins.str, session:TradeSession) -> None:
+        r"""
+        如果旧数据存在，会被替换
+        """
     def day_begin(self, product:builtins.str) -> datetime.time:
         r"""
         获取失败时会爆出异常

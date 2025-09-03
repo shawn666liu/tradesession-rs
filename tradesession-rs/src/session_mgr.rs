@@ -155,6 +155,10 @@ impl SessionManager {
         self.sessions.get(product)
     }
 
+    pub fn add_session(&mut self, product: &str, session: TradeSession) {
+        self.sessions.insert(product.to_string(), session);
+    }
+
     /// 该品种日线开始时间，9:00/9:15/9:30/21:00, 一般是集合竞价所在的时间
     pub fn day_begin(&self, product: &str) -> Option<&MyTimeType> {
         self.sessions.get(product).map(|s| s.day_begin())
