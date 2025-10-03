@@ -205,7 +205,7 @@ impl SessionMgr {
     }
 }
 
-#[cxx::bridge(namespace = "sessionpp")]
+#[cxx::bridge(namespace = "rustpp")]
 mod ffi {
     extern "Rust" {
         type SessionPP;
