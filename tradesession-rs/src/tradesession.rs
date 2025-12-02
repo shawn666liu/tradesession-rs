@@ -358,7 +358,7 @@ impl TradeSession {
         &self.morning_begin
     }
     /// 是否有夜盘交易
-    pub fn has_nigth(&self) -> bool {
+    pub fn has_night(&self) -> bool {
         self.slices.iter().any(|slice| slice.is_night())
     }
 

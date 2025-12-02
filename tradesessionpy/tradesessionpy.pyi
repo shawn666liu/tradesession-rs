@@ -97,7 +97,7 @@ class TradeSession:
         r"""
         该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
         """
-    def has_nigth(self) -> builtins.bool:
+    def has_night(self) -> builtins.bool:
         r"""
         是否有夜盘交易
         """

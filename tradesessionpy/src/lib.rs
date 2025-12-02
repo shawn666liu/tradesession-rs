@@ -84,8 +84,8 @@ impl TradeSession {
     }
 
     /// 是否有夜盘交易
-    pub fn has_nigth(&self) -> bool {
-        self.session.has_nigth()
+    pub fn has_night(&self) -> bool {
+        self.session.has_night()
     }
 
     #[pyo3(signature = (ts, include_begin, include_end=false))]

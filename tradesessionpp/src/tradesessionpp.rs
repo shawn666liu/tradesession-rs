@@ -77,8 +77,8 @@ impl SessionPP {
     pub fn morning_begin(&self) -> i64 {
         time_to_midnight_nanos(self.session.morning_begin())
     }
-    pub fn has_nigth(&self) -> bool {
-        self.session.has_nigth()
+    pub fn has_night(&self) -> bool {
+        self.session.has_night()
     }
 
     pub fn in_session(
@@ -239,7 +239,7 @@ mod ffi {
         /// 该品种早盘开始时间，9:00/9:15/9:30,非夜盘品种跟day_begin相同
         fn morning_begin(self: &SessionPP) -> i64;
         /// 是否有夜盘交易
-        pub fn has_nigth(self: &SessionPP) -> bool;
+        pub fn has_night(self: &SessionPP) -> bool;
         /// 获取此时间片对应分钟(u32)的数组，含开始，不含结束
         /// 注意：所有数值超前4小时
         /// 应用场景1：校验所有add_slice，自动移除重迭，自动排序，参看post_fix
