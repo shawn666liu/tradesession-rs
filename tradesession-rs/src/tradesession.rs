@@ -399,7 +399,7 @@ impl TradeSession {
                     val > slice.begin && val < slice.end
                 }
             };
-            in_range(start) || in_range(end)
+            in_range(start) || in_range(end) || (start <= slice.begin && end >= slice.end)
         })
     }
 
