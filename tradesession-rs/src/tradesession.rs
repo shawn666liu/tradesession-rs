@@ -392,14 +392,11 @@ impl TradeSession {
         let start = ShiftedTime::from(start);
         let end = ShiftedTime::from(end);
         self.slices.iter().any(|slice| {
-            let in_range = |val: ShiftedTime| {
-                if include_begin_end {
-                    val >= slice.begin && val <= slice.end
-                } else {
-                    val > slice.begin && val < slice.end
-                }
-            };
-            in_range(start) || in_range(end) || (start <= slice.begin && end >= slice.end)
+            if include_begin_end {
+                start <= slice.end && end >= slice.begin
+            } else {
+                start < slice.end && end > slice.begin
+            }
         })
     }
 
